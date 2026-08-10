@@ -1,0 +1,777 @@
+<title>Field Note 001 — Five things to build, one to actually build</title>
+
+<style>
+  :root {
+    color-scheme: light;
+    --ground:   #E7E9E3;
+    --surface:  #F2F3EE;
+    --sunken:   #DDE0D9;
+    --rule:     #C5CAC2;
+    --rule-soft:#D6DAD2;
+    --ink:      #14232D;
+    --ink-mid:  #3C4E58;
+    --ink-dim:  #64747B;
+    --real:     #8E5B0E;
+    --real-soft:#B98A3E;
+    --sim:      #1F6873;
+    --dead:     #97402F;
+
+    --display: "Iowan Old Style", Charter, "Bitstream Charter", Georgia, "Times New Roman", serif;
+    --body: "Iowan Old Style", Charter, "Bitstream Charter", Georgia, "Times New Roman", serif;
+    --util: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+
+    --measure: 34rem;
+    --frame: 68rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground:   #0C1720;
+      --surface:  #12212C;
+      --sunken:   #091219;
+      --rule:     #21384A;
+      --rule-soft:#1A2C3A;
+      --ink:      #D9E4E9;
+      --ink-mid:  #A8BCC6;
+      --ink-dim:  #7B95A3;
+      --real:     #E8A33D;
+      --real-soft:#A5773A;
+      --sim:      #61B7C5;
+      --dead:     #C4614C;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground:   #0C1720;
+    --surface:  #12212C;
+    --sunken:   #091219;
+    --rule:     #21384A;
+    --rule-soft:#1A2C3A;
+    --ink:      #D9E4E9;
+    --ink-mid:  #A8BCC6;
+    --ink-dim:  #7B95A3;
+    --real:     #E8A33D;
+    --real-soft:#A5773A;
+    --sim:      #61B7C5;
+    --dead:     #C4614C;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 1.0625rem;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .frame {
+    max-width: var(--frame);
+    margin: 0 auto;
+    padding: 0 1.5rem 6rem;
+  }
+
+  .prose { max-width: var(--measure); }
+
+  p { margin: 0 0 1.1em; }
+  strong { font-weight: 600; color: var(--ink); }
+  em { font-style: italic; }
+
+  a { color: var(--sim); }
+
+  .kicker {
+    font-family: var(--util);
+    font-size: 0.6875rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    margin: 0;
+  }
+
+  /* ---- masthead ---- */
+
+  header.mast {
+    border-bottom: 1px solid var(--rule);
+    padding: 4.5rem 0 2.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .mast-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.75rem;
+    align-items: baseline;
+  }
+
+  h1 {
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: clamp(2.4rem, 6.2vw, 4rem);
+    line-height: 1.02;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+    margin: 0;
+    max-width: 20ch;
+  }
+
+  h1 .rule-off { color: var(--real); font-style: italic; }
+
+  .standfirst {
+    font-size: 1.1875rem;
+    line-height: 1.55;
+    color: var(--ink-mid);
+    max-width: 46ch;
+    margin: 0;
+  }
+
+  /* ---- section scaffolding ---- */
+
+  section { padding-top: 4rem; }
+
+  .sec-head {
+    display: grid;
+    grid-template-columns: 7rem 1fr;
+    gap: 0 1.5rem;
+    align-items: start;
+    border-top: 1px solid var(--rule);
+    padding-top: 1.25rem;
+    margin-bottom: 2rem;
+  }
+
+  .sec-head h2 {
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: clamp(1.6rem, 3.4vw, 2.15rem);
+    line-height: 1.12;
+    letter-spacing: -0.015em;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  .sec-head .kicker { padding-top: 0.55rem; }
+
+  @media (max-width: 44rem) {
+    .sec-head { grid-template-columns: 1fr; gap: 0.5rem; }
+    .sec-head .kicker { padding-top: 0; }
+  }
+
+  h3 {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 1.1875rem;
+    letter-spacing: -0.005em;
+    margin: 0 0 0.4rem;
+  }
+
+  /* ---- branch map ---- */
+
+  figure.map {
+    margin: 2.5rem 0 0;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    padding: 1.25rem 1.25rem 1rem;
+  }
+
+  .map-scroll { overflow-x: auto; }
+  .map svg { display: block; width: 100%; min-width: 34rem; height: auto; }
+
+  .map figcaption {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.5rem;
+    border-top: 1px solid var(--rule-soft);
+    margin-top: 0.9rem;
+    padding-top: 0.75rem;
+  }
+
+  .key {
+    font-family: var(--util);
+    font-size: 0.6875rem;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--ink-dim);
+  }
+  .key::before {
+    content: "";
+    width: 1.4rem;
+    height: 2px;
+    background: currentColor;
+  }
+  .key.real { color: var(--real); }
+  .key.sim  { color: var(--sim); }
+  .key.dead { color: var(--dead); }
+
+  .draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 1.5s cubic-bezier(.2,.7,.3,1) forwards; }
+  .d1 { animation-delay: .05s } .d2 { animation-delay: .25s } .d3 { animation-delay: .4s }
+  .d4 { animation-delay: .55s } .d5 { animation-delay: .7s }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+
+  .node { opacity: 0; animation: pop .5s ease forwards; animation-delay: 1.2s; }
+  @keyframes pop { to { opacity: 1; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .draw { animation: none; stroke-dashoffset: 0; }
+    .node { animation: none; opacity: 1; }
+  }
+
+  .svg-label {
+    font-family: var(--util);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  /* ---- read: three observations ---- */
+
+  .obs {
+    display: grid;
+    gap: 2rem;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  }
+  .obs > div { display: flex; flex-direction: column; gap: 0.45rem; }
+  .obs p { margin: 0; font-size: 1rem; color: var(--ink-mid); }
+  .obs .kicker { color: var(--real); }
+
+  /* ---- filter: five tests ---- */
+
+  .tests {
+    display: grid;
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  }
+  .tests > div {
+    background: var(--surface);
+    padding: 1.1rem 1.15rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+  .tests h3 { margin: 0; font-size: 1.0625rem; }
+  .tests p { margin: 0; font-size: 0.9375rem; color: var(--ink-mid); line-height: 1.5; }
+
+  .rejected {
+    margin-top: 1.75rem;
+    border-left: 2px solid var(--dead);
+    padding: 0.15rem 0 0.15rem 1.1rem;
+    max-width: var(--measure);
+  }
+  .rejected p { margin: 0; font-size: 0.9375rem; color: var(--ink-mid); }
+  .rejected .kicker { color: var(--dead); margin-bottom: 0.35rem; }
+
+  /* ---- concepts ---- */
+
+  .concept {
+    border-top: 1px solid var(--rule);
+    padding: 1.75rem 0 0;
+    display: grid;
+    grid-template-columns: 7rem 1fr;
+    gap: 0 1.5rem;
+  }
+  .concept + .concept { margin-top: 2.25rem; }
+
+  .concept-id {
+    font-family: var(--util);
+    font-size: 0.6875rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding-top: 0.3rem;
+  }
+
+  .concept-body { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
+
+  .concept h3 {
+    font-size: 1.5rem;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+  .concept h3 span { color: var(--ink-dim); font-style: italic; font-size: 1.125rem; }
+  .concept .lede { margin: 0; color: var(--ink-mid); max-width: 46ch; }
+
+  .picked .concept-id { color: var(--real); }
+  .picked h3 { color: var(--real); }
+  .picked { border-top-color: var(--real); }
+
+  .tag {
+    align-self: flex-start;
+    font-family: var(--util);
+    font-size: 0.625rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    border: 1px solid currentColor;
+    padding: 0.2rem 0.4rem;
+    color: var(--real);
+  }
+
+  dl.spec {
+    margin: 0;
+    display: grid;
+    grid-template-columns: 8.5rem 1fr;
+    gap: 0.5rem 1.25rem;
+    border-top: 1px solid var(--rule-soft);
+    padding-top: 0.9rem;
+    max-width: 50rem;
+  }
+  dl.spec dt {
+    font-family: var(--util);
+    font-size: 0.625rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    padding-top: 0.25rem;
+  }
+  dl.spec dd { margin: 0; font-size: 0.9375rem; line-height: 1.5; color: var(--ink-mid); }
+  dl.spec dt.fatal { color: var(--dead); }
+
+  @media (max-width: 44rem) {
+    .concept { grid-template-columns: 1fr; gap: 0.75rem; }
+    .concept-id { flex-direction: row; align-items: baseline; gap: 0.75rem; padding-top: 0; }
+    dl.spec { grid-template-columns: 1fr; gap: 0.15rem; }
+    dl.spec dd { margin-bottom: 0.6rem; }
+  }
+
+  /* ---- the pick ---- */
+
+  .pick-frame {
+    border: 1px solid var(--real);
+    background: var(--surface);
+    padding: 2rem 1.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .steps { margin: 0; padding: 0; list-style: none; counter-reset: s; display: grid; gap: 0.75rem; }
+  .steps li {
+    counter-increment: s;
+    display: grid;
+    grid-template-columns: 2rem 1fr;
+    gap: 0 0.75rem;
+    font-size: 0.9375rem;
+    color: var(--ink-mid);
+    line-height: 1.5;
+  }
+  .steps li::before {
+    content: counter(s, decimal-leading-zero);
+    font-family: var(--util);
+    font-size: 0.6875rem;
+    letter-spacing: 0.1em;
+    color: var(--real);
+    padding-top: 0.28rem;
+  }
+
+  .table-scroll { overflow-x: auto; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 40rem;
+    font-size: 0.9375rem;
+  }
+  th, td {
+    text-align: left;
+    vertical-align: top;
+    padding: 0.7rem 1rem 0.7rem 0;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  thead th {
+    font-family: var(--util);
+    font-size: 0.625rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    border-bottom-color: var(--rule);
+    padding-bottom: 0.5rem;
+  }
+  td:first-child, th:first-child { width: 6rem; }
+  td:first-child {
+    font-family: var(--util);
+    font-size: 0.75rem;
+    color: var(--real);
+    font-variant-numeric: tabular-nums;
+    padding-top: 0.8rem;
+  }
+  td:last-child { color: var(--ink-dim); font-style: italic; }
+  tbody td { color: var(--ink-mid); }
+
+  ul.kills { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.85rem; }
+  ul.kills li {
+    border-left: 2px solid var(--dead);
+    padding-left: 1rem;
+    font-size: 0.9375rem;
+    color: var(--ink-mid);
+    line-height: 1.5;
+  }
+
+  .block { display: flex; flex-direction: column; gap: 0.75rem; }
+  .block > .kicker { color: var(--ink-dim); }
+
+  .warn .kicker { color: var(--dead); }
+
+  footer {
+    border-top: 1px solid var(--rule);
+    margin-top: 5rem;
+    padding-top: 1.25rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 2rem;
+  }
+</style>
+
+<div class="frame">
+
+  <header class="mast">
+    <div class="mast-meta">
+      <p class="kicker">Field Note 001</p>
+      <p class="kicker">August 2026</p>
+      <p class="kicker">Founder's memo — not a survey</p>
+    </div>
+    <h1>Five things to build, <span class="rule-off">one</span> to actually build.</h1>
+    <p class="standfirst">Agents can act now. Nobody dares let them, because you cannot
+      preview a consequence. That gap is the whole opportunity — and it is the last one on
+      this list that a single person can still take.</p>
+  </header>
+
+  <figure class="map">
+    <div class="map-scroll">
+      <svg viewBox="0 0 960 330" role="img" aria-label="A branch map: one committed path in amber, several simulated futures in cyan, two abandoned branches in rust.">
+        <g stroke="var(--rule-soft)" stroke-width="1">
+          <line x1="60" y1="34" x2="60" y2="290" />
+          <line x1="250" y1="34" x2="250" y2="290" />
+          <line x1="450" y1="34" x2="450" y2="290" />
+          <line x1="700" y1="34" x2="700" y2="290" />
+          <line x1="880" y1="34" x2="880" y2="290" />
+        </g>
+        <g class="svg-label" fill="var(--ink-dim)">
+          <text x="60" y="22">Now</text>
+          <text x="250" y="22">Day 2</text>
+          <text x="450" y="22">Day 4</text>
+          <text x="700" y="22">Day 6</text>
+          <text x="880" y="22">Day 7</text>
+        </g>
+
+        <g fill="none" stroke-width="2" stroke-linecap="round">
+          <!-- simulated fan -->
+          <path class="draw d2" stroke="var(--sim)" pathLength="1" d="M250,160 C330,160 380,110 450,96" />
+          <path class="draw d2" stroke="var(--sim)" pathLength="1" d="M250,160 C330,160 380,205 450,222" />
+          <path class="draw d3" stroke="var(--sim)" pathLength="1" d="M450,96 C540,84 600,72 700,66" />
+          <path class="draw d3" stroke="var(--sim)" pathLength="1" d="M450,160 C540,160 610,182 700,190" />
+          <path class="draw d4" stroke="var(--sim)" pathLength="1" d="M700,66 C770,62 820,58 880,56" />
+          <path class="draw d4" stroke="var(--sim)" pathLength="1" d="M700,190 C770,194 820,198 880,200" />
+          <path class="draw d4" stroke="var(--sim)" pathLength="1" d="M450,160 C540,160 610,146 700,140" />
+          <path class="draw d5" stroke="var(--sim)" pathLength="1" d="M700,140 C770,138 820,136 880,134" />
+
+          <!-- abandoned -->
+          <path class="draw d3" stroke="var(--dead)" pathLength="1" d="M450,222 C520,232 560,250 606,258" />
+          <path class="draw d4" stroke="var(--dead)" pathLength="1" d="M450,96 C516,102 552,116 596,124" />
+
+          <!-- real past, then the committed future -->
+          <path class="draw d1" stroke="var(--real)" stroke-width="2.5" pathLength="1" d="M60,160 C130,160 190,160 250,160" />
+          <path class="draw d2" stroke="var(--real)" stroke-width="2.5" pathLength="1" d="M250,160 C330,160 380,160 450,160" />
+          <path class="draw d3" stroke="var(--real)" stroke-width="2.5" pathLength="1" d="M450,160 C540,160 610,116 700,108" />
+          <path class="draw d4" stroke="var(--real)" stroke-width="2.5" pathLength="1" d="M700,108 C770,104 820,100 880,98" />
+        </g>
+
+        <g class="node">
+          <g stroke="var(--dead)" stroke-width="2" stroke-linecap="round">
+            <line x1="600" y1="252" x2="612" y2="264" /><line x1="612" y1="252" x2="600" y2="264" />
+            <line x1="590" y1="118" x2="602" y2="130" /><line x1="602" y1="118" x2="590" y2="130" />
+          </g>
+          <circle cx="60" cy="160" r="4.5" fill="var(--real)" />
+          <circle cx="880" cy="98" r="6" fill="var(--real)" />
+          <circle cx="880" cy="56" r="3.5" fill="var(--ground)" stroke="var(--sim)" stroke-width="2" />
+          <circle cx="880" cy="134" r="3.5" fill="var(--ground)" stroke="var(--sim)" stroke-width="2" />
+          <circle cx="880" cy="200" r="3.5" fill="var(--ground)" stroke="var(--sim)" stroke-width="2" />
+          <text class="svg-label" x="866" y="86" text-anchor="end" fill="var(--real)">Committed</text>
+          <text class="svg-label" x="628" y="264" fill="var(--dead)">Abandoned — day 4</text>
+          <text class="svg-label" x="618" y="130" fill="var(--dead)">Abandoned — day 5</text>
+        </g>
+      </svg>
+    </div>
+    <figcaption>
+      <span class="key real">Real — happened, or will</span>
+      <span class="key sim">Simulated — ran in the fork</span>
+      <span class="key dead">Abandoned</span>
+    </figcaption>
+  </figure>
+
+  <section>
+    <div class="sec-head">
+      <p class="kicker">The read</p>
+      <h2>Three facts about August 2026, and what each one permits.</h2>
+    </div>
+
+    <div class="obs">
+      <div>
+        <p class="kicker">Duration</p>
+        <p>Capability stopped being the constraint; duration became it. Frontier agents finish
+          work at fifty-percent reliability on a horizon measured in <em>hours</em>. On hard
+          long-horizon benchmarks, the state of the art sits under twenty percent. The published
+          failure modes are not intelligence failures — they are bookkeeping failures. Subplan
+          drift. Forgetting a constraint that surfaced mid-task. Declaring done. Never verifying.
+          That is a missing-environment problem, and environments are buildable by one person.</p>
+      </div>
+      <div>
+        <p class="kicker">The rails</p>
+        <p>The infrastructure land grab is over before most people noticed it started. Agent
+          identity, agent payments, agent authorization — ACP, UCP, AP2, A2A, TAP — are being
+          standardized this year by companies with balance sheets and distribution. Do not open
+          a toll booth next to Stripe's toll booth.</p>
+      </div>
+      <div>
+        <p class="kicker">Distribution</p>
+        <p>The products that actually broke out were single-purpose, and their <em>output</em>
+          was the advertisement. Nobody watched a demo. They saw a friend's artifact and wanted
+          one of their own. Design the artifact first; the product is what has to exist for the
+          artifact to be real.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <p class="kicker">The filter</p>
+      <h2>Five gates. Fail one and it is not a one-person company.</h2>
+    </div>
+
+    <div class="tests">
+      <div>
+        <h3>The artifact test</h3>
+        <p>What it produces has to be worth posting. If growth needs a referral program, it is
+          already dead.</p>
+      </div>
+      <div>
+        <h3>The escape-velocity test</h3>
+        <p>It improves with use in a way nobody can copy off the homepage. Prompts are not a
+          moat. Accumulated environment state is.</p>
+      </div>
+      <div>
+        <h3>The zero-ops test</h3>
+        <p>No sales calls, no onboarding, no support queue that grows with revenue. It sells,
+          teaches, and debugs itself.</p>
+      </div>
+      <div>
+        <h3>The frontier test</h3>
+        <p><em>Barely</em> possible now, comfortable in eighteen months. Too easy means forty
+          clones by Christmas. Too hard means you are a research lab with no revenue.</p>
+      </div>
+      <div>
+        <h3>The consequence test</h3>
+        <p>It touches money, a deadline, or a relationship. Toys spike and die, and the spike
+          is indistinguishable from the real thing for about six weeks.</p>
+      </div>
+    </div>
+
+    <div class="rejected">
+      <p class="kicker">Rejected without further thought</p>
+      <p>Agent app stores — no defensibility. Agent identity and payment rails — see above.
+        Another coding agent — a capital-intensive knife fight. Companions — retention rented
+        from a model provider. Anything phrased "ChatGPT for X" where X is a feature.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <p class="kicker">The five</p>
+      <h2>Each one attacks a specific place where agents break.</h2>
+    </div>
+
+    <article class="concept">
+      <div class="concept-id"><span>01</span></div>
+      <div class="concept-body">
+        <h3>Logbook <span>— the agent that does not forget</span></h3>
+        <p class="lede">An agent that owns one goal for a year. The innovation is not the agent;
+          it is the <strong>world file</strong> — a single human-readable dossier of your
+          situation that the agent rewrites every day and re-reads before acting. Wake, read,
+          take one to five real actions, write back. The dossier is the fix for drift, and it is
+          also the product: your own life, legible, serialized.</p>
+        <dl class="spec">
+          <dt>Breaks</dt><dd>Catastrophic forgetting, state drift, premature completion.</dd>
+          <dt>Artifact</dt><dd>The dossier. "Day 214 of my agent getting me out of debt."</dd>
+          <dt>Money</dt><dd>Subscription priced against the outcome, never the tokens.</dd>
+          <dt>Moat</dt><dd>The world file. Switching cost compounds daily and silently.</dd>
+          <dt class="fatal">How it dies</dt><dd>The gap between day one and day sixty. Nothing visible happens in week two.</dd>
+        </dl>
+      </div>
+    </article>
+
+    <article class="concept picked">
+      <div class="concept-id"><span>02</span><span class="tag">The pick</span></div>
+      <div class="concept-body">
+        <h3>Antechamber <span>— rehearse the week before you live it</span></h3>
+        <p class="lede">Your accounts, forked into a shadow copy. An agent runs a week of real
+          work inside the fork — including <strong>replies from the people involved</strong>,
+          modeled on your actual history with each of them. You get a branch map of futures. You
+          commit one. Only then does anything touch the world, with a receipt and a hard undo
+          window behind it.</p>
+        <dl class="spec">
+          <dt>Breaks</dt><dd>Planning and subplanning failure, irreversibility, unverified claims.</dd>
+          <dt>Artifact</dt><dd>The branch map. And: "my agent simulated my landlord, and he said no in every timeline."</dd>
+          <dt>Money</dt><dd>Consumer subscription, then per-seat anywhere outbound work carries stakes.</dd>
+          <dt>Moat</dt><dd>Twin fidelity plus per-relationship counterparty models. Unclonable from outside the account.</dd>
+          <dt class="fatal">How it dies</dt><dd>The simulated people are unconvincing, and it becomes an expensive toy.</dd>
+        </dl>
+      </div>
+    </article>
+
+    <article class="concept">
+      <div class="concept-id"><span>03</span></div>
+      <div class="concept-body">
+        <h3>The Pact <span>— agents with teeth</span></h3>
+        <p class="lede">Not a habit tracker. You sign a mandate with real stakes — money, a
+          disclosure, a message that sends itself — and an agent with genuine account access
+          enforces it. The novel technical problem is that <strong>the principal is the
+          adversary</strong>: the user spends the month trying to jailbreak their own agent, and
+          the agent has to hold.</p>
+        <dl class="spec">
+          <dt>Breaks</dt><dd>Irreversible action under an adversarial principal; authority that must survive its owner's second thoughts.</dd>
+          <dt>Artifact</dt><dd>Consequences. Enforcement is inherently content.</dd>
+          <dt>Money</dt><dd>A cut of the stake, plus float on escrow.</dd>
+          <dt>Moat</dt><dd>Trust and a public track record — which is also brutal to bootstrap.</dd>
+          <dt class="fatal">How it dies</dt><dd>One bad enforcement, one press cycle. The regulatory edge is live from day one.</dd>
+        </dl>
+      </div>
+    </article>
+
+    <article class="concept">
+      <div class="concept-id"><span>04</span></div>
+      <div class="concept-body">
+        <h3>Stamp <span>— the adversarial verifier</span></h3>
+        <p class="lede">Agents claim; nobody checks. Build the checker — an independent adversary
+          that takes an agent's claimed work, hunts for evidence it actually happened, and issues
+          a verdict. Consumer skin: paste any claim, get a stamp.</p>
+        <dl class="spec">
+          <dt>Breaks</dt><dd>The most-cited failure dimension of the year: verification and reflection.</dd>
+          <dt>Artifact</dt><dd>The verdict. Stamps become a format people quote at each other.</dd>
+          <dt>Money</dt><dd>Per-verification, then embedded inside other people's products.</dd>
+          <dt>Moat</dt><dd>The corpus of what was verified, how, and what turned out to be false.</dd>
+          <dt class="fatal">How it dies</dt><dd>Negative-sum posture, thin willingness to pay, and every agent vendor ships a free self-check.</dd>
+        </dl>
+      </div>
+    </article>
+
+    <article class="concept">
+      <div class="concept-id"><span>05</span></div>
+      <div class="concept-body">
+        <h3>The Commons <span>— a world other people's agents live in</span></h3>
+        <p class="lede">A persistent world whose inhabitants are agents belonging to real people,
+          with real scarcity, real reputation, and real accumulated history. You write your
+          agent's charter; it lives there around the clock and sends you dispatches.</p>
+        <dl class="spec">
+          <dt>Breaks</dt><dd>Multi-agent adversarial play, long horizons, emergent negotiation under incomplete information.</dd>
+          <dt>Artifact</dt><dd>The dispatches. Short-form native, and they write themselves.</dd>
+          <dt>Money</dt><dd>Subscription plus scarcity.</dd>
+          <dt>Moat</dt><dd>The world itself. Nobody clones three years of lore and two hundred thousand inhabitants.</dd>
+          <dt class="fatal">How it dies</dt><dd>Retention, and inference cost per idle inhabitant. It is a game, and games are hit-driven.</dd>
+        </dl>
+      </div>
+    </article>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <p class="kicker">The pick</p>
+      <h2>Antechamber. Sell the ground every agent stands on.</h2>
+    </div>
+
+    <div class="prose">
+      <p>Every other concept here is downstream of the same fact: agents can act, and nobody
+        dares let them, because a consequence cannot be previewed. Solve preview and you are not
+        selling an agent — you are selling the ground the agents stand on. That is the only
+        position on this list where the hard part compounds into something a competitor cannot
+        read off your homepage.</p>
+      <p>It passes the frontier test precisely. Simulating a plausible week of your working life,
+        with counterparties who behave like the actual humans, is <em>barely</em> achievable
+        right now. In eighteen months it is table stakes — which is exactly the window one
+        person wants.</p>
+    </div>
+
+    <div class="pick-frame">
+      <div class="block">
+        <p class="kicker">The v1 wedge — one domain, cheap to mirror, high stakes, high frequency</p>
+        <ol class="steps">
+          <li>Connect mail and calendar, read-only. Fork a shadow copy as an event-sourced store with full replay.</li>
+          <li>Give the agent a mandate. <em>Clear the backlog. Reschedule what's slipping. Cancel what I don't use.</em></li>
+          <li>It runs seven simulated days inside the fork. Counterparties reply, modeled on your real history with each of them.</li>
+          <li>You get a branch map: committed path, simulated paths, dead paths.</li>
+          <li>You commit one branch. It executes for real, produces a receipt, and stays undoable for twenty-four hours.</li>
+        </ol>
+        <p style="margin:0;font-size:0.9375rem;color:var(--ink-mid);">The counterparty models are
+          the whole company. They are the hard part, the moat, and the thing people screenshot.</p>
+      </div>
+
+      <div class="block">
+        <p class="kicker">Ninety days — each block answers one question, and you stop if the answer is no</p>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr><th scope="col">Weeks</th><th scope="col">Build</th><th scope="col">The question it answers</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>1—2</td><td>The twin: event-sourced shadow of mail and calendar, full replay, zero AI anywhere in it.</td><td>Can I fork a life and roll it back?</td></tr>
+              <tr><td>3—4</td><td>Counterparty models, validated by backtest — hold out sixty days, predict the real replies, score it.</td><td>Are the simulated people real enough to bet on?</td></tr>
+              <tr><td>5—6</td><td>The branch map, exportable as image and short video from the first commit.</td><td>Is the artifact good enough to be the marketing?</td></tr>
+              <tr><td>7—9</td><td>Commit-and-replay: real execution, signed receipt, hard undo window.</td><td>Will anyone trust it with a real send?</td></tr>
+              <tr><td>10—12</td><td>Launch on the artifact, not the product.</td><td>Does the branch map travel on its own?</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <p class="kicker">Launch mechanic — no account, no OAuth, no friction</p>
+        <p style="margin:0;font-size:0.9375rem;color:var(--ink-mid);max-width:52ch;">Paste the
+          hardest email you have to send this week. Get a branch map of how it goes. Free, no
+          sign-up, counterparty inferred from the pasted thread alone. The account comes later,
+          when someone wants the fork of their <em>real</em> week.</p>
+      </div>
+
+      <div class="block">
+        <p class="kicker" style="color:var(--dead)">Kill criteria — write these down before the first commit</p>
+        <ul class="kills">
+          <li>Counterparty backtest does not beat a trivial baseline by week four → <strong>kill it.</strong> Without that number the twin is theatre and you are selling a mood.</li>
+          <li>Fewer than one in four people who see a branch map make a second one within seven days → the artifact is not an artifact. Fix it or stop.</li>
+          <li>Inference cost per rehearsal exceeds monthly price divided by expected runs, with no line of sight to closing the gap → the unit economics never arrive.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="prose" style="margin-top:2.5rem;">
+      <p class="kicker" style="color:var(--dead);margin-bottom:0.5rem;">The live wire</p>
+      <p>Simulating real, named people is this product's power and its exposure. Two rules from
+        day one, not retrofitted after the first complaint. Model <strong>response classes and
+        likelihoods</strong>, not a named person's voice as quotable output. And never let
+        simulated content leave the owner's private preview in a form that could be mistaken for
+        something a real person actually said. Get this wrong once and the story about the
+        company writes itself.</p>
+
+      <p class="kicker" style="margin-bottom:0.5rem;">The honest bear case</p>
+      <p>Twin fidelity may plateau below the level where anyone changes a decision because of it.
+        If the branch map is merely interesting rather than <em>decisive</em>, this is a beautiful
+        demo with a three-week retention curve. Week four's backtest is the entire bet. Run it
+        early, and believe the number.</p>
+    </div>
+  </section>
+
+  <footer>
+    <p class="kicker">Field Note 001</p>
+    <p class="kicker">Five considered, one recommended</p>
+    <p class="kicker">Next: build the twin</p>
+  </footer>
+
+</div>
