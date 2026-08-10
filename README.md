@@ -6,9 +6,14 @@ Your accounts, forked into a shadow copy. An agent runs a week of real work
 inside the fork. You get a branch map of futures, commit one, and only then does
 anything touch the world -- with a receipt and a hard undo window behind it.
 
-**This repository is weeks 1-2: the twin.** There is no model in it. That is the
-point -- the environment has to be trustworthy before anything intelligent is
-allowed to act in it.
+**The app runs.** `antechamber serve` opens a local page where you pick a mandate,
+rehearse the week, read the branch map, and commit one future with a receipt and
+an undo window. It works on synthetic data out of the box and on your real mail
+via an mbox/ICS import -- no OAuth, no credentials, nothing leaves the machine.
+
+There is still no language model anywhere in it. Probabilities come from a
+per-contact model measured against your own history and scored by the backtest;
+simulated counterparties record a *response class*, never a named person's words.
 
 Strategy memo, including the four concepts that were considered and rejected:
 [`docs/field-note-001.md`](docs/field-note-001.md).
@@ -25,13 +30,20 @@ Strategy memo, including the four concepts that were considered and rejected:
 | **Commit and undo** | Promoting a fork writes a receipt and opens a 24h window. An undo appends; the projection stops applying the commit. History of what was almost done survives. |
 | **The prediction ledger** | Every rehearsal records falsifiable claims. When the due date passes, reality settles them and the scoreboard scores them. |
 | **The backtest** | Replay a held-out stretch of the past, predict from what was knowable then, score against what happened. |
+| **The rehearsal** | A mandate becomes plans, plans become real agent-authored events in a fork, and each plan branches on what the people involved do. |
+| **The branch map** | The futures, ranked, with the probability mass they cover. Clicking one shows the week hour by hour and offers to commit it. |
+| **Ingestion** | mbox and ICS in, same event kinds out. Everything downstream cannot tell imported data from generated data. |
 
 ## What is deliberately not here
 
-No model, no LLM, no mailbox integration, no UI. Real ingestion lands in weeks
-3-4 behind the same event kinds; the branch map is weeks 5-6; real execution is
-weeks 7-9. A seeded synthetic life stands in for a mailbox so every claim below
-can be tested against ground truth a real mailbox could never provide.
+No language model. No live mail connection -- imports are file-based on purpose,
+so version one is never a custodian of anyone's credentials. No hosting: the
+server binds to loopback because the twin holds somebody's mail, and a
+multi-tenant version is a different program with a different threat model.
+
+A seeded synthetic life ships alongside, because it gives the tests ground truth
+a real mailbox never could -- every contact's true reply rate is known, so the
+scoreboard can be checked against an answer key.
 
 ---
 
@@ -40,7 +52,7 @@ can be tested against ground truth a real mailbox could never provide.
 Standard library only, no dependencies. Tested on Python 3.11.
 
 ```bash
-python3 -m unittest discover -s tests      # 25 tests, ~26s
+python3 -m unittest discover -s tests      # 47 tests, ~75s
 
 export DB=/tmp/antechamber.db
 A="python3 -m antechamber.cli --db $DB"
@@ -49,7 +61,26 @@ $A seed --days 200 --seed 3                # write a synthetic life onto the tru
 $A status                                  # project it
 ```
 
-### Rehearse, commit, undo
+### The app
+
+```bash
+$A serve                                   # http://127.0.0.1:8787
+```
+
+Pick a mandate, press **Rehearse the week**. You get plans scored side by side,
+a branch map of how each one goes, and — on any future — the week hour by hour
+with a commit button. Committing prints a receipt; the undo stays live for 24h.
+
+### Your real mail
+
+Gmail Takeout gives you an mbox; most calendars export ICS.
+
+```bash
+$A import --mbox ~/Takeout/Mail/All\ mail.mbox --ics ~/cal.ics --me you@example.com
+$A serve
+```
+
+### Rehearse, commit, undo, from the terminal
 
 ```bash
 $A fork week --note rehearsal
@@ -62,7 +93,9 @@ $A replay trunk     # chain still verifies
 ```
 
 The commit's `state_after` is the same hash the fork projected before committing.
-What you rehearsed is bit for bit what happened.
+What you rehearsed is bit for bit what happened. (A fork from a full rehearsal
+also carries simulated replies, so there the comparison is against the fork
+projected *without* them — see "What the rehearsal will not do".)
 
 ### The scoreboard
 
@@ -129,6 +162,25 @@ always answers within the day is evidence something is wrong; an open thread wit
 someone who takes a week is just Tuesday. A counterparty model without elapsed
 time is mis-specified no matter how much history it has.
 
+## What the rehearsal will not do
+
+Three things it refuses, because each would be a lie the interface tells:
+
+**It does not write in anyone's voice.** A simulated counterparty records that a
+reply *lands*, when, and with what probability. The body is a visible
+placeholder. Response classes are what the data supports; a named person's
+sentences are not.
+
+**It does not claim it stopped a meeting from moving.** Pre-confirming cannot
+change how often people reschedule, and there is no evidence in the data that it
+does. What it changes is *when you find out* — so the metric the plan improves is
+late surprises, not moves. Calendar risk is carried by every plan including the
+one that ignores it, or the plan that addresses it would score worst.
+
+**It does not claim a commit reproduced the rehearsal.** It reproduces the
+rehearsal *minus its simulated replies* — the invented part is exactly the part
+that does not come true. The receipt compares against that hash and says so.
+
 ## The rule that is code, not policy
 
 Simulated counterparties are quarantined by actor (`sim:`), and the store refuses
@@ -143,14 +195,21 @@ antechamber/
   events.py       immutable event, canonical form, hash chain
   store.py        append-only log, branches, forks, integrity check
   world.py        projection: events in, world out, stable state hash
-  commits.py      promotion, receipts, undo window
+  commits.py      promotion, receipts, undo window, no double-execution
   predictions.py  the ledger: claims, resolvers, Brier scoring, calibration
   predictors.py   three deliberately dumb predictors, no model
   backtest.py     rewind, predict, score against what happened
+  rehearse.py     mandate to plans to futures; the branch map
+  ingest.py       mbox and ICS into the same event kinds
+  server.py       JSON API over the twin
+  web/app.html    the app
   synthetic.py    a seeded life, so the tests have ground truth
   cli.py
-tests/test_twin.py
+tests/test_twin.py   the engine
+tests/test_app.py    the product
 ```
+
+47 tests. `python3 -m unittest discover -s tests`
 
 ## Kill criteria
 

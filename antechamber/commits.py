@@ -25,10 +25,26 @@ def _commit_id(branch: str, hashes: List[str]) -> str:
 
 
 def promotable(store: EventStore, branch: str) -> List[E.Event]:
-    """The agent's proposals, and only those."""
-    fork_row = store.require_branch(branch)
-    own = [ev for ev in store.read(branch) if ev.branch == branch and ev.gid > fork_row["fork_gid"]]
-    return [ev for ev in own if ev.actor == E.ACTOR_AGENT and not ev.simulated]
+    """The agent's proposals, and only those.
+
+    Anything off the trunk that the agent authored counts, including actions
+    inherited from a parent fork -- a rehearsal writes its plan once and then
+    forks per outcome, so the actions live one level up from the future you pick.
+    """
+    return [
+        ev
+        for ev in store.read(branch)
+        if ev.branch != TRUNK and ev.actor == E.ACTOR_AGENT and not ev.simulated
+    ]
+
+
+def already_promoted(store: EventStore) -> set:
+    """Source hashes the trunk has executed before, undone or not."""
+    seen = set()
+    for ev in store.read(TRUNK):
+        if ev.kind == E.COMMIT_SEALED:
+            seen.update(ev.payload.get("source_hashes", []))
+    return seen
 
 
 def commit(store: EventStore, branch: str, at_ts: Optional[int] = None) -> dict:
@@ -41,6 +57,16 @@ def commit(store: EventStore, branch: str, at_ts: Optional[int] = None) -> dict:
     actions = promotable(store, branch)
     if not actions:
         raise StoreError(f"branch {branch} proposes nothing the agent authored")
+
+    # Sibling futures share their plan's actions. Picking a second future must not
+    # send the same message twice.
+    done = already_promoted(store)
+    clash = [a for a in actions if a.hash in done]
+    if clash:
+        raise StoreError(
+            f"{len(clash)} of these actions were already executed by an earlier commit "
+            f"(first: {clash[0].kind} on {clash[0].entity})"
+        )
 
     ts = store.now(TRUNK) if at_ts is None else at_ts
     before = project(store.read(TRUNK)).state_hash()

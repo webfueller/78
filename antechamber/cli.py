@@ -8,7 +8,7 @@ import os
 import sys
 from typing import Optional
 
-from . import backtest, commits, events as E, predictions as P, synthetic
+from . import backtest, commits, events as E, ingest, predictions as P, rehearse, server, synthetic
 from .predictors import REGISTRY
 from .store import TRUNK, EventStore, StoreError
 from .world import project
@@ -75,6 +75,19 @@ def main(argv: Optional[list] = None) -> int:
     s.add_argument("--predictor", default="per-contact", choices=sorted(REGISTRY))
     s.add_argument("--holdout-days", type=int, default=30)
     s.add_argument("--horizon-hours", type=int, default=48)
+
+    s = sub.add_parser("import", help="build a twin from an mbox and/or ICS export")
+    s.add_argument("--mbox", action="append", default=[], help="path to an .mbox (repeatable)")
+    s.add_argument("--ics", action="append", default=[], help="path to an .ics (repeatable)")
+    s.add_argument("--me", action="append", default=[], help="your email address (repeatable)")
+
+    s = sub.add_parser("rehearse", help="run the week and print the branch map")
+    s.add_argument("--mandate", default="chase,prune,defend")
+    s.add_argument("--horizon-days", type=int, default=7)
+
+    s = sub.add_parser("serve", help="run the app")
+    s.add_argument("--host", default="127.0.0.1")
+    s.add_argument("--port", type=int, default=8787)
 
     s = sub.add_parser("propose", help="write an agent action into a fork (nothing real happens)")
     s.add_argument("branch")
@@ -165,6 +178,37 @@ def _dispatch(args, store: EventStore) -> int:
         _out(backtest.run(store, predictor=args.predictor,
                           holdout_days=args.holdout_days,
                           horizon_hours=args.horizon_hours))
+
+    elif args.cmd == "import":
+        if args.mbox and not args.me:
+            raise StoreError("--me is required with --mbox: without it nothing knows which messages are yours")
+        records = []
+        for path in args.mbox:
+            records += ingest.read_mbox(path, args.me)
+        for path in args.ics:
+            records += ingest.read_ics(path)
+        if not records:
+            raise StoreError("nothing to import")
+        _out({**ingest.ingest(store, records),
+              "summary": project(store.read(TRUNK)).summary()})
+
+    elif args.cmd == "rehearse":
+        mandate = [m.strip() for m in args.mandate.split(",") if m.strip()]
+        m = rehearse.rehearse(store, mandate=mandate, horizon_days=args.horizon_days)
+        _out({
+            "rehearsal": m["rehearsal"], "recommended": m["recommended"],
+            "plans": [
+                {"id": p["id"], "name": p["name"], "actions": len(p["actions"]),
+                 "utility": p["utility"], "coverage": p["coverage"],
+                 "expected": p["expected"],
+                 "futures": [{"branch": b["id"], "p": b["p"], "metrics": b["metrics"]}
+                             for b in p["branches"]]}
+                for p in m["plans"]
+            ],
+        })
+
+    elif args.cmd == "serve":
+        server.serve(args.db, host=args.host, port=args.port)
 
     elif args.cmd == "propose":
         w = project(store.read(args.branch))
