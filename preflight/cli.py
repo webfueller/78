@@ -10,7 +10,7 @@ from typing import Optional
 
 from . import backtest, commits, events as E, ingest, predictions as P, preferences, rehearse, server, synthetic
 from .predictors import REGISTRY
-from .store import TRUNK, EventStore, StoreError
+from rehearsal.store import TRUNK, EventStore, StoreError
 from .world import project
 
 DAY = 24 * 3600

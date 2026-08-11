@@ -12,7 +12,7 @@ import json
 import sqlite3
 from typing import Iterable, Iterator, List, Optional, Sequence, Tuple
 
-from .events import GENESIS, REAL_ACTORS, Event, digest, is_simulated
+from .events import GENESIS, REAL_ACTORS, Event, digest
 
 TRUNK = "trunk"
 OPEN_END = 1 << 62  # stands in for "no upper bound" on a branch's own segment

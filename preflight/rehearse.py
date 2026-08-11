@@ -24,12 +24,14 @@ import dataclasses
 import hashlib
 from typing import Dict, List, Optional, Sequence, Tuple
 
+from rehearsal import futures as F
+
 from . import events as E
 from . import predictions as P
 from . import preferences as P_PREF
 from . import stakes as S
 from .predictors import REGISTRY, PerContactAge, Predictor
-from .store import TRUNK, EventStore
+from rehearsal.store import TRUNK, EventStore
 from .world import Thread, World, project
 
 HOUR = 3600
@@ -360,43 +362,13 @@ def _reply_uncertainty(w: World, t: Thread, at: int, horizon: int, p: float) -> 
 
 
 def enumerate_futures(unc: Sequence[Uncertainty], keep: int = MAX_BRANCHES) -> List[dict]:
-    """Branch on *how many* responses land, not on which exact combination.
+    """How many of these land, and which -- exactly, from the kernel.
 
-    Enumerating combinations looks rigorous and produces a useless map: with
-    eight open questions there are 256 futures and the top five cover a quarter
-    of the probability. Nobody wants to know the odds that these three specific
-    people answer and those five do not. They want to know how the week goes.
-
-    The count distribution is a Poisson binomial, computable exactly in O(n²).
-    Five counts typically cover most of the mass. For each count, the
-    highest-probability composition is the one that assumes the most likely
-    people are the ones who answered -- provably, since ranking by p also ranks
-    by p/(1-p) -- so the representative future shown is the modal one for that
-    count, not a guess.
+    The uncertainties carry a great deal of mail-specific baggage; the
+    enumeration needs one number from each of them and nothing else, which is
+    why the arithmetic lives in `rehearsal.futures` and this is the unwrapping.
     """
-    n = len(unc)
-    if n == 0:
-        return [{"outcomes": [], "p": 1.0, "count": 0}]
-
-    dist = [1.0]
-    for u in unc:
-        nxt = [0.0] * (len(dist) + 1)
-        for k, pk in enumerate(dist):
-            nxt[k] += pk * (1 - u.p)
-            nxt[k + 1] += pk * u.p
-        dist = nxt
-
-    likeliest = sorted(range(n), key=lambda i: -unc[i].p)
-    futures = []
-    for count in sorted(range(n + 1), key=lambda k: -dist[k])[:keep]:
-        hits = set(likeliest[:count])
-        futures.append({
-            "outcomes": [i in hits for i in range(n)],
-            "p": dist[count],
-            "count": count,
-        })
-    futures.sort(key=lambda f: -f["p"])
-    return futures
+    return F.enumerate_futures([u.p for u in unc], keep=keep)
 
 
 # --------------------------------------------------------------------- execute

@@ -29,7 +29,7 @@ from typing import Optional
 from urllib.parse import parse_qs, urlparse
 
 from . import commits, paste, predictions as P, preferences, rehearse
-from .store import TRUNK, EventStore, StoreError
+from rehearsal.store import TRUNK, EventStore, StoreError
 from .world import project
 
 WEB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")

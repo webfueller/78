@@ -10,7 +10,7 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from preflight import backtest, commits, events as E, predictions as P, synthetic
-from preflight.store import TRUNK, EventStore, StoreError
+from rehearsal.store import TRUNK, EventStore, StoreError
 from preflight.world import project
 
 DAY = 24 * 3600
@@ -212,7 +212,7 @@ class TestLedger(Base):
         self.assertEqual(P.brier(pairs_bad), 1.0)
 
     def test_base_rate_does_not_peek_at_its_own_answer(self):
-        rates = P._leave_one_out_base_rates([True, True, False, False])
+        rates = P.leave_one_out_base_rates([True, True, False, False])
         self.assertEqual(rates, [1 / 3, 1 / 3, 2 / 3, 2 / 3])
 
 

@@ -12,7 +12,7 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from preflight import paste, rehearse, server, synthetic
-from preflight.store import TRUNK, EventStore
+from rehearsal.store import TRUNK, EventStore
 from preflight.world import project
 
 WEB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "preflight", "web")

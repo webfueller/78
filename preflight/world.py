@@ -1,18 +1,19 @@
 """Projection: events in, world out.
 
-Deterministic and total -- the same events always produce the same world, and
-`state_hash` proves it. Undone commits are not deleted; they are simply not
-applied, which is the only honest way to undo an append-only log.
+Mail, meetings and money, folded from the log. Claims, commits and undo are the
+kernel's half of this and live in `rehearsal.projection`; what is here is only
+what makes this domain *this* domain.
 """
 
 from __future__ import annotations
 
 import dataclasses
-import hashlib
 from typing import Dict, List, Optional, Sequence
 
+from rehearsal.events import Event
+from rehearsal.projection import Projection
+
 from . import events as E
-from .events import Event, canonical
 
 
 @dataclasses.dataclass
@@ -70,23 +71,20 @@ class Subscription:
         return self.amount_cents * len(self.charges)
 
 
-@dataclasses.dataclass
-class World:
-    contacts: Dict[str, dict] = dataclasses.field(default_factory=dict)
-    threads: Dict[str, Thread] = dataclasses.field(default_factory=dict)
-    meetings: Dict[str, Meeting] = dataclasses.field(default_factory=dict)
-    subscriptions: Dict[str, Subscription] = dataclasses.field(default_factory=dict)
-    predictions: Dict[str, dict] = dataclasses.field(default_factory=dict)
-    commits: Dict[str, dict] = dataclasses.field(default_factory=dict)
-    applied: int = 0
-    skipped: int = 0
-    clock: int = 0
+class World(Projection):
+    def __init__(self) -> None:
+        super().__init__()
+        self.contacts: Dict[str, dict] = {}
+        self.threads: Dict[str, Thread] = {}
+        self.meetings: Dict[str, Meeting] = {}
+        self.subscriptions: Dict[str, Subscription] = {}
 
     def open_threads(self) -> List[Thread]:
         return [t for t in self.threads.values() if t.awaiting_reply_from]
 
-    def state_hash(self) -> str:
-        shape = {
+    def shape(self) -> dict:
+        """What being this world means. The kernel adds the claims and hashes it."""
+        return {
             "contacts": {k: v for k, v in sorted(self.contacts.items())},
             "threads": {
                 k: {
@@ -100,11 +98,7 @@ class World:
             "subscriptions": {
                 k: dataclasses.asdict(s) for k, s in sorted(self.subscriptions.items())
             },
-            "predictions": {k: v for k, v in sorted(self.predictions.items())},
         }
-        # Commits are bookkeeping *about* the world, not the world. Excluding them
-        # is what lets an undo restore a state hash bit for bit.
-        return hashlib.sha256(canonical(shape).encode("utf-8")).hexdigest()
 
     def summary(self) -> dict:
         open_subs = [s for s in self.subscriptions.values() if s.state == "active"]
@@ -125,133 +119,77 @@ class World:
             "state_hash": self.state_hash(),
         }
 
+    def apply(self, ev: Event) -> None:
+        p = ev.payload
+        k = ev.kind
+
+        if k == E.CONTACT_OBSERVED:
+            self.contacts.setdefault(
+                ev.entity, {"name": p.get("name", ev.entity), "address": p.get("address", "")}
+            )
+
+        elif k in (E.MESSAGE_RECEIVED, E.MESSAGE_SENT):
+            t = self.threads.get(ev.entity)
+            if t is None:
+                t = Thread(
+                    id=ev.entity,
+                    subject=p.get("subject", ""),
+                    counterparty=p.get("counterparty", ""),
+                )
+                self.threads[ev.entity] = t
+            if not t.counterparty:
+                t.counterparty = p.get("counterparty", "")
+            t.messages.append(
+                {
+                    "ts": ev.ts,
+                    "direction": "in" if k == E.MESSAGE_RECEIVED else "out",
+                    "sender": p.get(
+                        "sender", t.counterparty if k == E.MESSAGE_RECEIVED else "me"
+                    ),
+                    "actor": ev.actor,
+                    "simulated": ev.simulated,
+                    "body": p.get("body", ""),
+                }
+            )
+
+        elif k == E.CALENDAR_SCHEDULED:
+            self.meetings[ev.entity] = Meeting(
+                id=ev.entity,
+                title=p.get("title", ""),
+                start=p["start"],
+                end=p["end"],
+                attendees=list(p.get("attendees", [])),
+            )
+
+        elif k == E.CALENDAR_MOVED:
+            m = self.meetings.get(ev.entity)
+            if m is not None:
+                m.moves.append({"ts": ev.ts, "from": m.start, "to": p["start"]})
+                m.start, m.end = p["start"], p["end"]
+
+        elif k == E.CALENDAR_CANCELLED:
+            m = self.meetings.get(ev.entity)
+            if m is not None:
+                m.state = "cancelled"
+
+        elif k == E.SUBSCRIPTION_OBSERVED:
+            self.subscriptions[ev.entity] = Subscription(
+                id=ev.entity,
+                merchant=p.get("merchant", ""),
+                amount_cents=p["amount_cents"],
+                period=p.get("period", "monthly"),
+            )
+
+        elif k == E.SUBSCRIPTION_CHARGED:
+            s = self.subscriptions.get(ev.entity)
+            if s is not None and s.state == "active":
+                s.charges.append(ev.ts)
+
+        elif k == E.SUBSCRIPTION_CANCELLED:
+            s = self.subscriptions.get(ev.entity)
+            if s is not None:
+                s.state = "cancelled"
+
 
 def project(evs: Sequence[Event], include_simulated: bool = True) -> World:
-    """Fold events into a world. Two passes: learn what was undone, then apply."""
-    undone = {
-        ev.payload["commit_id"] for ev in evs if ev.kind == E.COMMIT_UNDONE
-    }
-
-    w = World()
-    for ev in evs:
-        if ev.commit_id is not None and ev.commit_id in undone:
-            w.skipped += 1
-            continue
-        if ev.simulated and not include_simulated:
-            w.skipped += 1
-            continue
-        _apply(w, ev)
-        w.applied += 1
-        w.clock = max(w.clock, ev.ts)
-    return w
-
-
-def _apply(w: World, ev: Event) -> None:
-    p = ev.payload
-    k = ev.kind
-
-    if k == E.CONTACT_OBSERVED:
-        w.contacts.setdefault(
-            ev.entity, {"name": p.get("name", ev.entity), "address": p.get("address", "")}
-        )
-
-    elif k in (E.MESSAGE_RECEIVED, E.MESSAGE_SENT):
-        t = w.threads.get(ev.entity)
-        if t is None:
-            t = Thread(id=ev.entity, subject=p.get("subject", ""), counterparty=p.get("counterparty", ""))
-            w.threads[ev.entity] = t
-        if not t.counterparty:
-            t.counterparty = p.get("counterparty", "")
-        t.messages.append(
-            {
-                "ts": ev.ts,
-                "direction": "in" if k == E.MESSAGE_RECEIVED else "out",
-                "sender": p.get("sender", t.counterparty if k == E.MESSAGE_RECEIVED else "me"),
-                "actor": ev.actor,
-                "simulated": ev.simulated,
-                "body": p.get("body", ""),
-            }
-        )
-
-    elif k == E.CALENDAR_SCHEDULED:
-        w.meetings[ev.entity] = Meeting(
-            id=ev.entity,
-            title=p.get("title", ""),
-            start=p["start"],
-            end=p["end"],
-            attendees=list(p.get("attendees", [])),
-        )
-
-    elif k == E.CALENDAR_MOVED:
-        m = w.meetings.get(ev.entity)
-        if m is not None:
-            m.moves.append({"ts": ev.ts, "from": m.start, "to": p["start"]})
-            m.start, m.end = p["start"], p["end"]
-
-    elif k == E.CALENDAR_CANCELLED:
-        m = w.meetings.get(ev.entity)
-        if m is not None:
-            m.state = "cancelled"
-
-    elif k == E.SUBSCRIPTION_OBSERVED:
-        w.subscriptions[ev.entity] = Subscription(
-            id=ev.entity,
-            merchant=p.get("merchant", ""),
-            amount_cents=p["amount_cents"],
-            period=p.get("period", "monthly"),
-        )
-
-    elif k == E.SUBSCRIPTION_CHARGED:
-        s = w.subscriptions.get(ev.entity)
-        if s is not None and s.state == "active":
-            s.charges.append(ev.ts)
-
-    elif k == E.SUBSCRIPTION_CANCELLED:
-        s = w.subscriptions.get(ev.entity)
-        if s is not None:
-            s.state = "cancelled"
-
-    elif k == E.PREDICTION_MADE:
-        w.predictions[ev.entity] = {
-            "id": ev.entity,
-            "branch": ev.branch,
-            "made_at": ev.ts,
-            "claim": p["claim"],
-            "resolver": p["resolver"],
-            "params": p["params"],
-            "p": p["p"],
-            "predictor": p.get("predictor", "unknown"),
-            "resolve_by": p["resolve_by"],
-            "outcome": None,
-            "resolved_at": None,
-        }
-
-    elif k == E.PREDICTION_RESOLVED:
-        rec = w.predictions.get(ev.entity)
-        if rec is not None:
-            rec["outcome"] = bool(p["outcome"])
-            rec["resolved_at"] = ev.ts
-
-    elif k == E.COMMIT_OPENED:
-        w.commits[ev.entity] = {
-            "id": ev.entity,
-            "branch": p["branch"],
-            "opened_at": ev.ts,
-            "state": "open",
-            "actions": p["actions"],
-            "sealed_at": None,
-            "undone_at": None,
-        }
-
-    elif k == E.COMMIT_SEALED:
-        c = w.commits.get(ev.entity)
-        if c is not None:
-            c["state"] = "sealed"
-            c["sealed_at"] = ev.ts
-            c["receipt"] = p
-
-    elif k == E.COMMIT_UNDONE:
-        c = w.commits.get(p["commit_id"])
-        if c is not None:
-            c["state"] = "undone"
-            c["undone_at"] = ev.ts
+    return World.fold(evs, include_simulated=include_simulated)

@@ -1,122 +1,52 @@
-"""Events are the only thing that is true.
+"""What can happen in a life made of mail, meetings and money.
 
-Everything else in this system is a projection. An event is immutable, ordered
-within its branch, and chained by hash to the event before it -- so a replay
-either reproduces the recorded chain exactly or it fails loudly.
+The kinds below are this domain's whole vocabulary. Everything structural --
+what an event *is*, how it is hashed, who is allowed to author one, what a
+commit or a claim looks like -- belongs to the kernel and is imported from
+`rehearsal`, not redefined here.
+
+Anything an agent proposes in a fork uses the same kinds a real observation
+would, so a rehearsed week and a lived week project through identical code.
 """
 
 from __future__ import annotations
 
-import dataclasses
-import hashlib
-import json
-from typing import Any, Optional
+from rehearsal.events import (  # noqa: F401  (this module is the domain's event namespace)
+    ACTOR_AGENT,
+    ACTOR_USER,
+    ACTOR_WORLD,
+    COMMIT_OPENED,
+    COMMIT_SEALED,
+    COMMIT_UNDONE,
+    GENESIS,
+    KERNEL_KINDS,
+    PREDICTION_MADE,
+    PREDICTION_RESOLVED,
+    REAL_ACTORS,
+    SIM_PREFIX,
+    Event,
+    canonical,
+    digest,
+    is_simulated,
+)
 
-GENESIS = "0" * 64
-
-# World-state kinds. Anything an agent proposes in a fork uses the same kinds a
-# real observation would, so a rehearsed week and a lived week project through
-# identical code.
+# Mail.
 MESSAGE_RECEIVED = "message.received"
 MESSAGE_SENT = "message.sent"
 CONTACT_OBSERVED = "contact.observed"
+
+# Calendar.
 CALENDAR_SCHEDULED = "calendar.scheduled"
 CALENDAR_MOVED = "calendar.moved"
 CALENDAR_CANCELLED = "calendar.cancelled"
+
+# Money.
 SUBSCRIPTION_OBSERVED = "money.subscription_observed"
 SUBSCRIPTION_CHARGED = "money.charged"
 SUBSCRIPTION_CANCELLED = "money.cancelled"
 
-# Ledger kinds.
-PREDICTION_MADE = "prediction.made"
-PREDICTION_RESOLVED = "prediction.resolved"
-
-# Commit kinds.
-COMMIT_OPENED = "commit.opened"
-COMMIT_SEALED = "commit.sealed"
-COMMIT_UNDONE = "commit.undone"
-
-# Actors.
-ACTOR_WORLD = "world"
-ACTOR_USER = "user"
-ACTOR_AGENT = "agent"
-SIM_PREFIX = "sim:"
-
-# What the trunk will accept. A whitelist rather than a `sim:` blacklist: the
-# quarantine should not depend on nobody ever writing "SIM:" or a Cyrillic s.
-REAL_ACTORS = frozenset({ACTOR_WORLD, ACTOR_USER, ACTOR_AGENT})
-
-
-def is_simulated(actor: str) -> bool:
-    """Simulated counterparties are quarantined by actor, not by convention.
-
-    A `sim:` event may never reach the trunk. This is the single mechanical
-    guarantee behind the rule that a simulated person's words never escape the
-    owner's private preview.
-    """
-    # Normalised, because `promotable` and the projection both lean on this and
-    # "SIM:ana" or " sim:ana" reading as real would be a quiet disaster. The
-    # actual guarantee is the REAL_ACTORS whitelist on the trunk above; this is
-    # the second lock, not the first.
-    cleaned = actor.replace("\u200b", "").replace("\ufeff", "").strip().casefold()
-    return cleaned.startswith(SIM_PREFIX)
-
-
-def canonical(obj: Any) -> str:
-    return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
-
-
-def digest(
-    prev: str,
-    branch: str,
-    seq: int,
-    ts: int,
-    kind: str,
-    entity: str,
-    actor: str,
-    payload: dict,
-) -> str:
-    body = canonical(
-        {
-            "prev": prev,
-            "branch": branch,
-            "seq": seq,
-            "ts": ts,
-            "kind": kind,
-            "entity": entity,
-            "actor": actor,
-            "payload": payload,
-        }
-    )
-    return hashlib.sha256(body.encode("utf-8")).hexdigest()
-
-
-@dataclasses.dataclass(frozen=True)
-class Event:
-    branch: str
-    seq: int
-    ts: int
-    kind: str
-    entity: str
-    actor: str
-    payload: dict
-    prev: str
-    hash: str
-    gid: int = 0
-    commit_id: Optional[str] = None
-
-    @property
-    def simulated(self) -> bool:
-        return is_simulated(self.actor)
-
-    def recompute(self) -> str:
-        return digest(
-            self.prev,
-            self.branch,
-            self.seq,
-            self.ts,
-            self.kind,
-            self.entity,
-            self.actor,
-            self.payload,
-        )
+DOMAIN_KINDS = frozenset({
+    MESSAGE_RECEIVED, MESSAGE_SENT, CONTACT_OBSERVED,
+    CALENDAR_SCHEDULED, CALENDAR_MOVED, CALENDAR_CANCELLED,
+    SUBSCRIPTION_OBSERVED, SUBSCRIPTION_CHARGED, SUBSCRIPTION_CANCELLED,
+})

@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from preflight import commits, events as E, ingest, predictions as P, rehearse, server, synthetic
 from preflight.rehearse import Uncertainty
-from preflight.store import TRUNK, EventStore, StoreError
+from rehearsal.store import TRUNK, EventStore, StoreError
 from preflight.world import project
 
 DAY = 24 * 3600

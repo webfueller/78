@@ -11,7 +11,7 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from preflight import commits, events as E, preferences as PF, rehearse, synthetic
-from preflight.store import TRUNK, EventStore, StoreError
+from rehearsal.store import TRUNK, EventStore, StoreError
 
 DAY = 24 * 3600
 

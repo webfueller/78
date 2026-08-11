@@ -56,6 +56,12 @@ first paragraph.
 | **One pasted thread** | `/paste` turns a reply chain into a throwaway twin held in memory for one request. No account, nothing written down. |
 | **The shareable card** | The map exports as PNG or SVG, self-contained, carrying no names, no subjects and no message text. |
 
+The first six of those rows have nothing to do with email, and now live in a
+separate package: [`rehearsal`](docs/kernel.md), the kernel. Any agent that takes
+irreversible actions needs a log, a fork, a receipt, an undo and a record of its
+own claims; `preflight` is the first domain built on that, and the tests prove it
+is not the only one it could be.
+
 ## Two things a review caught that the README was quiet about
 
 **"Commit executes for real" does not send email.** There is no SMTP client in
@@ -107,7 +113,7 @@ scoreboard can be checked against an answer key.
 Standard library only, no dependencies. Tested on Python 3.11.
 
 ```bash
-python3 -m unittest discover -s tests      # 113 tests, ~150s
+python3 -m unittest discover -s tests      # 127 tests, ~175s
 
 export DB=/tmp/preflight.db
 A="python3 -m preflight.cli --db $DB"
@@ -312,16 +318,32 @@ leave the fork they were invented in.
 
 ## Layout
 
+Two packages, one direction. `preflight` imports `rehearsal`; nothing goes the
+other way, and a test fails the build if it ever does.
+
 ```
-preflight/
-  events.py       immutable event, canonical form, hash chain
-  store.py        append-only log, branches, forks, integrity check
-  world.py        projection: events in, world out, stable state hash
-  commits.py      promotion, receipts, undo window, no double-execution
-  predictions.py  the ledger: claims, resolvers, Brier scoring, calibration
+rehearsal/          the kernel — no mail, no meetings, no money in it
+  store.py          append-only log, branches, forks, integrity check
+  events.py         immutable event, canonical form, hash chain
+  projection.py     events in, state out, stable state hash
+  commits.py        promotion, receipts, undo window, no double-execution
+  ledger.py         claims, resolvers, Brier scoring, calibration
+  preferences.py    weights fitted to what was committed, and the honesty gate
+  futures.py        exact enumeration of what could happen
+
+preflight/          one domain built on it
+  events.py       mail, calendar and money event kinds
+  world.py        the projection: threads, meetings, subscriptions
+  resolvers.py    the four questions this product can be judged on
+  scoring.py      what a plan is worth, and the guesses it starts from
+  kernel.py       where the three above are handed to the kernel
+  commits.py      \
+  predictions.py   > mail-shaped doors onto the kernel's machinery
+  preferences.py  /
   predictors.py   three deliberately dumb predictors, no model
   backtest.py     rewind, predict, score against what happened
   rehearse.py     mandate to plans to futures; the branch map
+  stakes.py       what a thread is carrying: money, a deadline, a history
   ingest.py       mbox and ICS into the same event kinds
   paste.py        one pasted thread into a throwaway in-memory twin
   server.py       JSON API over the twin
@@ -330,12 +352,23 @@ preflight/
   web/map.js      the branch map, live and as a shareable card
   synthetic.py    a seeded life, so the tests have ground truth
   cli.py
-tests/test_twin.py   the engine
-tests/test_app.py    the product
-tests/test_mvp.py    the cold start and the card
+tests/test_twin.py       the engine
+tests/test_app.py        the product
+tests/test_mvp.py        the cold start and the card
+tests/test_preferences.py the learned weights
+tests/test_qa.py         what a hostile review found
+tests/test_rehearsal.py  the kernel, driven by a domain that is not mail
 ```
 
-65 tests. `python3 -m unittest discover -s tests`
+127 tests. `python3 -m unittest discover -s tests`
+
+**Why it is split.** The consumer value decays — 5–16% of week one once the
+backlog is clear ([002](docs/experiment-002.md)), and no scoring change reaches
+that ([003](docs/experiment-003.md)). The preview/receipt/undo/ledger layer does
+not: every agent action needs a preview, forever. So it is a package with its own
+tests and its own contract, and `preflight` is the first thing built on it rather
+than the thing it was carved out of. [`docs/kernel.md`](docs/kernel.md) has the
+contract and a second domain implemented in forty lines.
 
 ## Kill criteria
 

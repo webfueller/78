@@ -1,14 +1,18 @@
-"""Preflight -- the twin.
+"""Preflight -- rehearse the week before you live it.
 
-Weeks 1-2: an append-only, hash-chained log of a life; forks that rewind it;
-deterministic replay; commits that promote only what the agent authored, with a
-receipt and an undo window; and a prediction ledger that scores every claim
-against what actually happened.
+A life made of mail, meetings and money, projected from an append-only log,
+forked so an agent can run a week inside the copy, and committed one branch at a
+time with a receipt and an undo window behind it.
 
-There is no model in here. That is the point.
+The log, the fork, the receipt, the undo and the prediction ledger are not this
+package -- they are `rehearsal`, and they know nothing about mail. What is here
+is the domain: what an event means, what a plan is worth, and which claims this
+product allows itself to be judged on.
+
+There is no language model in here. That is the point.
 """
 
-from .store import TRUNK, EventStore, StoreError
+from rehearsal.store import TRUNK, EventStore, StoreError
 from .world import World, project
 
 __all__ = ["EventStore", "StoreError", "TRUNK", "World", "project"]

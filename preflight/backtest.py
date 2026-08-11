@@ -27,7 +27,7 @@ from typing import List, Optional, Tuple
 from . import events as E
 from . import predictions as P
 from .predictors import REGISTRY
-from .store import TRUNK, EventStore
+from rehearsal.store import TRUNK, EventStore
 from .world import project
 
 DAY = 24 * 3600

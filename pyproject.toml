@@ -15,7 +15,11 @@ dependencies = []
 preflight = "preflight.cli:main"
 
 [tool.setuptools]
-packages = ["preflight"]
+# Two packages, one direction: preflight imports rehearsal and never the reverse.
+# `rehearsal` carries no dependency on this product -- tests/test_rehearsal.py
+# fails the build if it grows one -- so lifting it into its own distribution is a
+# move and a five-line pyproject, whenever that is worth doing.
+packages = ["preflight", "rehearsal"]
 
 [tool.setuptools.package-data]
 preflight = ["web/*"]

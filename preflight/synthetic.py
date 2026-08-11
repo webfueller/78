@@ -13,7 +13,7 @@ import time
 from typing import List
 
 from . import events as E
-from .store import TRUNK, EventStore
+from rehearsal.store import TRUNK, EventStore
 
 HOUR = 3600
 DAY = 24 * HOUR
