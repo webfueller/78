@@ -17,7 +17,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Optional
 from urllib.parse import parse_qs, urlparse
 
-from . import commits, predictions as P, rehearse
+from . import commits, paste, predictions as P, rehearse
 from .store import TRUNK, EventStore, StoreError
 from .world import project
 
@@ -126,6 +126,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send(204, b"", "image/x-icon")
             return
         name = os.path.basename(path) or "app.html"
+        if "." not in name:
+            name += ".html"
         full = os.path.join(WEB, name)
         if not os.path.isfile(full):
             self._send(404, b"not found", "text/plain")
@@ -180,8 +182,23 @@ class Handler(BaseHTTPRequestHandler):
                     for r in recs[:40]
                 ])
 
+            elif path == "/api/paste":
+                body = body or {}
+                text = (body.get("text") or "").strip()
+                if len(text) < 40:
+                    raise ValueError("Paste a thread with at least a couple of messages in it.")
+                if len(text) > 200_000:
+                    raise ValueError("That is larger than a thread. Paste one conversation.")
+                self._json(paste.rehearse_paste(
+                    text, me=body.get("me", ""),
+                    horizon_days=int(body.get("horizon_days", 7)),
+                ))
+
             elif path == "/api/rehearse":
                 body = body or {}
+                # A new rehearsal is the natural moment to settle the claims the
+                # last one made, so the scoreboard moves without anyone asking.
+                P.resolve_due(store)
                 self._json(rehearse.rehearse(
                     store,
                     mandate=body.get("mandate") or ["chase", "prune", "defend"],

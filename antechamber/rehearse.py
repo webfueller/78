@@ -26,7 +26,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 from . import events as E
 from . import predictions as P
-from .predictors import REGISTRY
+from .predictors import REGISTRY, PerContactAge, Predictor
 from .store import TRUNK, EventStore
 from .world import Thread, World, project
 
@@ -146,9 +146,10 @@ def _idle_subscriptions(w: World, now: int, quiet_for: int = 90 * DAY) -> List[s
 # --------------------------------------------------------------------- mandate
 
 
-def build_plans(w: World, now: int, mandate: Sequence[str], horizon: int) -> List[Plan]:
+def build_plans(w: World, now: int, mandate: Sequence[str], horizon: int,
+                model: Optional[Predictor] = None, min_stale: int = 2 * DAY) -> List[Plan]:
     """Turn a mandate into a handful of plans worth comparing."""
-    model = REGISTRY["per-contact-age"]
+    model = model or REGISTRY["per-contact-age"]
     quotes = {c["params"].get("thread") or c["params"].get("meeting"): c
               for c in model.predict(w, at_ts=now, horizon=horizon)}
 
@@ -166,7 +167,7 @@ def build_plans(w: World, now: int, mandate: Sequence[str], horizon: int) -> Lis
     # no action -- but a plan that cannot beat silence should not be run.
     plans.append(Plan("hold", "Hold", "Change nothing. The baseline every other plan has to beat.", [], []))
 
-    stale = _stale_threads(w, now, min_age=2 * DAY)
+    stale = _stale_threads(w, now, min_age=min_stale)
     if "chase" in mandate and stale:
         actions, uncertain = [], []
         for i, t in enumerate(stale):
@@ -180,8 +181,11 @@ def build_plans(w: World, now: int, mandate: Sequence[str], horizon: int) -> Lis
                 offset=at - now,
             ))
             uncertain.append(_reply_uncertainty(w, t, at, horizon, reply_odds(t, at)))
+        one = len(stale) == 1
         plans.append(Plan(
-            "chase", "Chase everything",
+            "chase",
+            "Send the follow-up" if one else "Chase everything",
+            "Nudge the one thread that has gone quiet." if one else
             f"Nudge all {len(stale)} threads that have gone quiet. Maximum movement, maximum noise.",
             actions, uncertain,
         ))
@@ -203,7 +207,9 @@ def build_plans(w: World, now: int, mandate: Sequence[str], horizon: int) -> Lis
             uncertain.append(_reply_uncertainty(w, t, at, horizon, reply_odds(t, at)))
         plans.append(Plan(
             "chase_likely", "Chase who answers",
-            f"Nudge only the {len(likely)} people the model expects to reply. Same week, less noise.",
+            f"Nudge only the {len(likely)} "
+            f"{'person' if len(likely) == 1 else 'people'} the model expects to reply. "
+            "Same week, less noise.",
             actions, uncertain,
         ))
 
@@ -223,8 +229,9 @@ def build_plans(w: World, now: int, mandate: Sequence[str], horizon: int) -> Lis
                 ))
             plans.append(Plan(
                 "prune", f"{base.name} + prune",
-                f"{base.rationale.rstrip('.')}, and cancel {len(idle)} subscriptions "
-                f"nothing has referred to in 90 days.",
+                f"{base.rationale.rstrip('.')}, and cancel {len(idle)} "
+                f"{'subscription' if len(idle) == 1 else 'subscriptions'} "
+                "nothing has referred to in 90 days.",
                 actions, list(base.uncertain),
             ))
 
@@ -268,13 +275,24 @@ def build_plans(w: World, now: int, mandate: Sequence[str], horizon: int) -> Lis
             ))
         plans.append(Plan(
             "defend", f"{base.name} + defend calendar",
-            f"{base.rationale.rstrip('.')}, and pre-confirm {len(at_risk)} meetings the model "
-            "flags as likely to move — the move still happens, you just stop finding out on the day.",
+            f"{base.rationale.rstrip('.')}, and pre-confirm {len(at_risk)} "
+            f"{'meeting' if len(at_risk) == 1 else 'meetings'} the model flags as likely to "
+            "move — the move still happens, you just stop finding out on the day.",
             actions,
             [u for u in base.uncertain if u.resolver != "meeting_moves"] + confirmed,
         ))
 
-    return plans
+    # Two plans that do exactly the same things are one plan. On a twin with a
+    # single thread, "chase everything" and "chase who answers" collapse, and
+    # showing both would suggest a choice that is not there.
+    seen, unique = set(), []
+    for plan in plans:
+        signature = tuple(sorted((a.kind, a.entity) for a in plan.actions))
+        if signature in seen:
+            continue
+        seen.add(signature)
+        unique.append(plan)
+    return unique
 
 
 def _nudged(w: World, t: Thread, at: int) -> World:
@@ -357,17 +375,21 @@ def rehearse(
     horizon_days: int = 7,
     now: Optional[int] = None,
     base: str = TRUNK,
+    reply_prior: Optional[float] = None,
+    move_prior: Optional[float] = None,
+    min_stale: int = 2 * DAY,
 ) -> dict:
     """Run the week. Returns the branch map."""
     now = store.now(base) if now is None else now
     horizon = horizon_days * DAY
     w = project(store.read(base))
+    model = PerContactAge(reply_prior=reply_prior, move_prior=move_prior)
     rid = "r_" + hashlib.sha256(
-        E.canonical([base, now, sorted(mandate), horizon_days]).encode()
+        E.canonical([base, now, sorted(mandate), horizon_days, reply_prior, min_stale]).encode()
     ).hexdigest()[:12]
 
     plans_out = []
-    for plan in build_plans(w, now, mandate, horizon):
+    for plan in build_plans(w, now, mandate, horizon, model=model, min_stale=min_stale):
         # The rehearsal id is a hash of its inputs, so running the same rehearsal
         # again must read the existing one back rather than write it twice --
         # otherwise a page refresh sends every follow-up a second time.

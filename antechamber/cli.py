@@ -89,6 +89,12 @@ def main(argv: Optional[list] = None) -> int:
     s.add_argument("--host", default="127.0.0.1")
     s.add_argument("--port", type=int, default=8787)
 
+    s = sub.add_parser("demo", help="seed a synthetic life if the store is empty, then serve")
+    s.add_argument("--days", type=int, default=200)
+    s.add_argument("--seed", type=int, default=5)
+    s.add_argument("--host", default="127.0.0.1")
+    s.add_argument("--port", type=int, default=8787)
+
     s = sub.add_parser("propose", help="write an agent action into a fork (nothing real happens)")
     s.add_argument("branch")
     s.add_argument("--cancel-subscription", dest="cancel_sub", default=None)
@@ -208,6 +214,13 @@ def _dispatch(args, store: EventStore) -> int:
         })
 
     elif args.cmd == "serve":
+        server.serve(args.db, host=args.host, port=args.port)
+
+    elif args.cmd == "demo":
+        if not project(store.read(TRUNK)).contacts:
+            synthetic.seed_world(store, days=args.days, seed=args.seed)
+            print(f"seeded {args.days} days of synthetic history into {args.db}")
+        store.close()
         server.serve(args.db, host=args.host, port=args.port)
 
     elif args.cmd == "propose":

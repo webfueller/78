@@ -6,10 +6,11 @@ Your accounts, forked into a shadow copy. An agent runs a week of real work
 inside the fork. You get a branch map of futures, commit one, and only then does
 anything touch the world -- with a receipt and a hard undo window behind it.
 
-**The app runs.** `antechamber serve` opens a local page where you pick a mandate,
-rehearse the week, read the branch map, and commit one future with a receipt and
-an undo window. It works on synthetic data out of the box and on your real mail
-via an mbox/ICS import -- no OAuth, no credentials, nothing leaves the machine.
+**The app runs.** `pip install -e . && antechamber demo` opens a local page where
+you pick a mandate, rehearse the week, read the branch map, save it as an image,
+and commit one future with a receipt and an undo window. It works on your real
+mail via an mbox/ICS import -- no OAuth, no credentials, nothing leaves the
+machine -- and on a single pasted thread with no account at all.
 
 There is still no language model anywhere in it. Probabilities come from a
 per-contact model measured against your own history and scored by the backtest;
@@ -33,6 +34,8 @@ Strategy memo, including the four concepts that were considered and rejected:
 | **The rehearsal** | A mandate becomes plans, plans become real agent-authored events in a fork, and each plan branches on what the people involved do. |
 | **The branch map** | The futures, ranked, with the probability mass they cover. Clicking one shows the week hour by hour and offers to commit it. |
 | **Ingestion** | mbox and ICS in, same event kinds out. Everything downstream cannot tell imported data from generated data. |
+| **One pasted thread** | `/paste` turns a reply chain into a throwaway twin held in memory for one request. No account, nothing written down. |
+| **The shareable card** | The map exports as PNG or SVG, self-contained, carrying no names, no subjects and no message text. |
 
 ## What is deliberately not here
 
@@ -52,7 +55,7 @@ scoreboard can be checked against an answer key.
 Standard library only, no dependencies. Tested on Python 3.11.
 
 ```bash
-python3 -m unittest discover -s tests      # 47 tests, ~75s
+python3 -m unittest discover -s tests      # 65 tests, ~70s
 
 export DB=/tmp/antechamber.db
 A="python3 -m antechamber.cli --db $DB"
@@ -64,12 +67,28 @@ $A status                                  # project it
 ### The app
 
 ```bash
-$A serve                                   # http://127.0.0.1:8787
+pip install -e .
+antechamber demo                           # seeds a synthetic life, opens :8787
 ```
 
 Pick a mandate, press **Rehearse the week**. You get plans scored side by side,
 a branch map of how each one goes, and — on any future — the week hour by hour
 with a commit button. Committing prints a receipt; the undo stays live for 24h.
+**Save image** downloads the map as a card you can post.
+
+### One thread, no account
+
+`http://127.0.0.1:8787/paste` — paste a reply chain that still has its
+"On … wrote:" lines, or the raw message from your client's *show original*. Both
+Gmail-style and Apple-Mail-style dates parse. You get the same branch map for
+that one thread.
+
+Nothing is stored: the twin is built in an in-memory database that dies with the
+request. With one thread the evidence is thin — usually one or two observed
+replies — so the odds fall back to a stated population prior and the page says so
+in as many words. That prior is a placeholder for the cross-user number this
+product is supposed to learn, which is the whole moat argument arriving at the
+one place a new user can feel it.
 
 ### Your real mail
 
@@ -181,6 +200,17 @@ one that ignores it, or the plan that addresses it would score worst.
 rehearsal *minus its simulated replies* — the invented part is exactly the part
 that does not come true. The receipt compares against that hash and says so.
 
+## The card is the growth mechanic, so what it may contain is a rule
+
+The exported map carries plan names, counts and probabilities. No contact is
+named, no subject line appears, no message text is quoted. That is what makes it
+safe to post without thinking about it, and it is enforced by a test that reads
+the renderer and fails if it ever starts touching a contact, a subject or a body.
+
+Colours in the card are literals, not CSS variables: an exported SVG has no
+stylesheet to inherit from, and a map that renders correctly in the app and grey
+on someone's timeline is worse than no export at all.
+
 ## The rule that is code, not policy
 
 Simulated counterparties are quarantined by actor (`sim:`), and the store refuses
@@ -201,15 +231,19 @@ antechamber/
   backtest.py     rewind, predict, score against what happened
   rehearse.py     mandate to plans to futures; the branch map
   ingest.py       mbox and ICS into the same event kinds
+  paste.py        one pasted thread into a throwaway in-memory twin
   server.py       JSON API over the twin
   web/app.html    the app
+  web/paste.html  the no-account entry point
+  web/map.js      the branch map, live and as a shareable card
   synthetic.py    a seeded life, so the tests have ground truth
   cli.py
 tests/test_twin.py   the engine
 tests/test_app.py    the product
+tests/test_mvp.py    the cold start and the card
 ```
 
-47 tests. `python3 -m unittest discover -s tests`
+65 tests. `python3 -m unittest discover -s tests`
 
 ## Kill criteria
 

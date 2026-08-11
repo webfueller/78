@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "antechamber"
+version = "0.2.0"
+description = "Rehearse the week before you live it."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+dependencies = []
+
+[project.scripts]
+antechamber = "antechamber.cli:main"
+
+[tool.setuptools]
+packages = ["antechamber"]
+
+[tool.setuptools.package-data]
+antechamber = ["web/*"]

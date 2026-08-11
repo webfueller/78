@@ -115,8 +115,29 @@ def _clamp(p: float) -> float:
     return min(0.97, max(0.03, p))
 
 
+# What to assume about a person you have never watched. It is a placeholder, in
+# the same spirit as the scoring weights: the number that belongs here is the
+# cross-user prior learned from settled claims, which is precisely the asset this
+# product accumulates and does not have yet on day one.
+POPULATION_REPLY_PRIOR = 0.45
+POPULATION_MOVE_PRIOR = 0.20
+
+
 class Predictor:
     name = "abstract"
+
+    def __init__(self, reply_prior: Optional[float] = None, move_prior: Optional[float] = None):
+        # A twin built from a single pasted thread has one contact, so pooling
+        # "everyone else" returns that same contact and the estimate never gets
+        # shrunk toward anything. An explicit prior is the honest alternative.
+        self.reply_prior = reply_prior
+        self.move_prior = move_prior
+
+    def _priors(self, rflat: Counts, mflat: Counts) -> Tuple[float, float]:
+        return (
+            self.reply_prior if self.reply_prior is not None else _pooled(rflat),
+            self.move_prior if self.move_prior is not None else _pooled(mflat),
+        )
 
     def predict(self, w: World, at_ts: int, horizon: int) -> List[dict]:
         raise NotImplementedError
@@ -130,7 +151,7 @@ class GlobalBaseRate(Predictor):
     def predict(self, w: World, at_ts: int, horizon: int) -> List[dict]:
         rflat, _ = reply_stats(w, horizon, at_ts)
         mflat, _ = move_stats(w, at_ts, horizon)
-        rp, mp = _pooled(rflat), _pooled(mflat)
+        rp, mp = self._priors(rflat, mflat)
         return _claims(w, at_ts, horizon, lambda c, age: rp, lambda a, left: mp)
 
 
@@ -142,7 +163,7 @@ class PerContact(Predictor):
     def predict(self, w: World, at_ts: int, horizon: int) -> List[dict]:
         rflat, _ = reply_stats(w, horizon, at_ts)
         mflat, _ = move_stats(w, at_ts, horizon)
-        rp, mp = _pooled(rflat), _pooled(mflat)
+        rp, mp = self._priors(rflat, mflat)
         return _claims(
             w, at_ts, horizon,
             lambda c, age: _rate(rflat.get(c), rp),
@@ -163,7 +184,7 @@ class PerContactAge(Predictor):
     def predict(self, w: World, at_ts: int, horizon: int) -> List[dict]:
         rflat, raged = reply_stats(w, horizon, at_ts)
         mflat, maged = move_stats(w, at_ts, horizon)
-        rp, mp = _pooled(rflat), _pooled(mflat)
+        rp, mp = self._priors(rflat, mflat)
 
         def reply_p(c: str, age: int) -> float:
             return _rate(raged.get(f"{c}@{age}"), _rate(rflat.get(c), rp))

@@ -17,6 +17,10 @@
   --util:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
 }
 *{box-sizing:border-box}
+/* `display:flex` on a component beats the user-agent rule for [hidden], so a
+   hidden panel keeps rendering. Every hidden section in this page is a flex or
+   grid container, so this is not a nicety. */
+[hidden]{display:none !important}
 html,body{margin:0;height:100%}
 body{
   background:var(--ground); color:var(--ink);
@@ -121,6 +125,11 @@ td.pick{color:var(--real)}
 .bar .fill{display:block;height:100%;background:var(--sim)}
 .bar .v{font-family:var(--util);font-size:11px;color:var(--ink-mid);text-align:right;font-variant-numeric:tabular-nums}
 .empty{color:var(--ink-dim);font-size:13.5px}
+.steps{margin:0;padding-left:1.2rem;display:flex;flex-direction:column;gap:.65rem;
+  color:var(--ink-mid);font-size:14.5px;max-width:70ch}
+.steps b{color:var(--ink);font-weight:400}
+code{font-family:var(--util);font-size:12px;background:var(--sunken);border:1px solid var(--rule-soft);
+  padding:.15rem .4rem;display:inline-block;margin-top:.25rem;color:var(--ink-mid)}
 </style>
 </head>
 <body>
@@ -130,6 +139,8 @@ td.pick{color:var(--real)}
   <p class="k" id="clock">—</p>
   <p class="k" id="burn">—</p>
   <p class="k" id="calib">—</p>
+  <span style="flex:1"></span>
+  <a class="k" href="/paste" style="color:var(--sim)">Rehearse a single thread →</a>
 </header>
 
 <div class="grid">
@@ -149,7 +160,19 @@ td.pick{color:var(--real)}
   </aside>
 
   <main>
-    <section class="card">
+    <section class="card" id="onboard" hidden>
+      <p class="k">No twin yet</p>
+      <h2>There is nothing to rehearse until this knows something about your week.</h2>
+      <p style="margin:0;color:var(--ink-mid);max-width:60ch">Three ways in, cheapest first.</p>
+      <ol class="steps">
+        <li><b>Try one thread.</b> <a href="/paste">Paste a conversation</a> — no account, nothing stored.</li>
+        <li><b>Use your real mail.</b> Gmail Takeout gives you an mbox; most calendars export ICS.
+          <code>antechamber import --mbox mail.mbox --ics cal.ics --me you@example.com</code></li>
+        <li><b>Look around first.</b> <code>antechamber demo</code> writes a synthetic life and opens this page on it.</li>
+      </ol>
+    </section>
+
+    <section class="card" id="mandatecard">
       <p class="k">The mandate</p>
       <div class="mandate">
         <button class="chip" data-m="chase"  aria-pressed="true">Chase what's gone quiet</button>
@@ -167,6 +190,9 @@ td.pick{color:var(--real)}
         <span class="key s">Simulated future</span>
         <span class="key d">Late surprise</span>
         <span class="key" id="coverage"></span>
+        <span style="flex:1"></span>
+        <button class="ghost" id="png">Save image</button>
+        <button class="ghost" id="svg">Save SVG</button>
       </div>
     </section>
 
@@ -208,6 +234,7 @@ td.pick{color:var(--real)}
   </main>
 </div>
 
+<script src="/map.js"></script>
 <script>
 const $ = s => document.querySelector(s);
 const api = async (path, body) => {
@@ -229,6 +256,11 @@ let MAP = null, SELECTED = null, DETAIL = null, LAST_COMMIT = null;
 
 async function loadWorld() {
   const w = await api("/api/world");
+  const empty = !w.summary.contacts;
+  $("#onboard").hidden = !empty;
+  $("#mandatecard").hidden = empty;
+  if (empty) { $("#clock").textContent = "No history loaded"; $("#burn").textContent = ""; return; }
+
   $("#clock").textContent = "World clock · " + day(w.summary.clock);
   $("#burn").textContent = w.summary.active_subscriptions + " subscriptions · " +
                            money(w.summary.monthly_burn_cents) + "/mo";
@@ -265,58 +297,10 @@ async function loadScore() {
 /* ------------------------------------------------------------- the branch map */
 
 function drawMap(map) {
-  const plans = map.plans, W = 1000, PAD = 46;
-  const rows = plans.reduce((n,p) => n + Math.max(1, p.branches.length), 0);
-  const H = Math.max(240, rows * 30 + plans.length * 16 + 46);
+  const built = buildBranchMap(map);
   const svg = $("#map");
-  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
-
-  const xRoot = 34, xPlan = 300, xEnd = W - 210;
-  let y = 40, parts = [], planY = [];
-
-  // day rules
-  for (let d = 0; d <= map.horizon_days; d++) {
-    const x = xPlan + (xEnd - xPlan) * (d / map.horizon_days);
-    parts.push(`<line x1="${x}" y1="26" x2="${x}" y2="${H-10}" stroke="var(--rule-soft)" stroke-width="1"/>`);
-    if (d % 2 === 0) parts.push(`<text class="sl" x="${x}" y="18" fill="var(--ink-dim)">Day ${d}</text>`);
-  }
-
-  plans.forEach((p, i) => {
-    const n = Math.max(1, p.branches.length);
-    const band = n * 30;
-    planY.push(y + band/2 - 15);
-    y += band + 16;
-  });
-  const yRoot = H/2;
-
-  plans.forEach((p, i) => {
-    const rec = p.id === map.recommended;
-    const col = rec ? "var(--real)" : "var(--sim)";
-    const py = planY[i];
-    parts.push(`<path class="edge p${i}" d="M${xRoot},${yRoot} C${(xRoot+xPlan)/2},${yRoot} ${(xRoot+xPlan)/2},${py} ${xPlan},${py}"
-                 stroke="${col}" stroke-width="${rec?2.6:1.6}"/>`);
-    parts.push(`<text class="sl" x="${xPlan-8}" y="${py-7}" text-anchor="end" fill="${col}">${esc(p.name)}</text>`);
-
-    let by = py - (p.branches.length-1)*15;
-    p.branches.forEach((b, j) => {
-      const late = b.metrics.late_surprises > 0;
-      const ec = late ? "var(--dead)" : col;
-      parts.push(`<path class="edge p${i} b${i}-${j}" d="M${xPlan},${py} C${(xPlan+xEnd)/2},${py} ${(xPlan+xEnd)/2},${by} ${xEnd},${by}"
-                   stroke="${ec}" stroke-width="${(0.8 + 5*b.p).toFixed(2)}" opacity="${(0.35+0.65*b.p).toFixed(2)}"/>`);
-      parts.push(`<circle cx="${xEnd}" cy="${by}" r="${rec?4.5:3.5}" fill="${ec}"/>`);
-      const label = `${b.metrics.replies} reply · ${b.metrics.late_surprises} late · ${Math.round(b.p*100)}%`;
-      parts.push(`<g class="endpoint" data-plan="${i}" data-branch="${j}" tabindex="0" role="button"
-                    aria-label="${esc(p.name)}: ${label}">
-                   <rect x="${xEnd}" y="${by-11}" width="200" height="22"/>
-                   <text class="sl" x="${xEnd+10}" y="${by+3.5}" fill="${late?"var(--dead)":"var(--ink-mid)"}">${label}</text>
-                  </g>`);
-      by += 30;
-    });
-  });
-
-  parts.push(`<circle cx="${xRoot}" cy="${yRoot}" r="5" fill="var(--real)"/>`);
-  parts.push(`<text class="sl" x="${xRoot}" y="${yRoot-13}" fill="var(--real)">Now</text>`);
-  svg.innerHTML = parts.join("");
+  svg.setAttribute("viewBox", `0 0 ${built.width} ${built.height}`);
+  svg.innerHTML = built.body;
 
   svg.querySelectorAll(".endpoint").forEach(g => {
     const pick = () => selectFuture(+g.dataset.plan, +g.dataset.branch);
@@ -326,9 +310,18 @@ function drawMap(map) {
     g.addEventListener("mouseleave", () => highlight(null));
   });
 
-  const cov = plans.map(p => p.coverage).reduce((a,b)=>Math.min(a,b), 1);
+  const cov = map.plans.map(p => p.coverage).reduce((a,b)=>Math.min(a,b), 1);
   $("#coverage").textContent = `These futures cover ${Math.round(cov*100)}%+ of the probability`;
-  $("#coverage").style.color = "var(--ink-dim)";
+}
+
+function shareMeta() {
+  const best = MAP.plans.find(p => p.id === MAP.recommended);
+  const e = best.expected;
+  return {
+    title: `${MAP.horizon_days} days, ${MAP.plans.length} plans, rehearsed`,
+    subtitle: `Recommended: ${best.name} — ${best.actions.length} actions, ` +
+              `${e.replies.toFixed(1)} replies expected, ${e.late_surprises.toFixed(1)} late surprises`,
+  };
 }
 
 function highlight(pi, bj) {
@@ -464,6 +457,9 @@ $("#undo").addEventListener("click", async () => {
     loadWorld();
   } catch (e) { $("#error").textContent = e.message; }
 });
+
+$("#png").addEventListener("click", () => downloadMapPNG(MAP, shareMeta(), "branch-map.png"));
+$("#svg").addEventListener("click", () => downloadMapSVG(MAP, shareMeta(), "branch-map.svg"));
 
 loadWorld(); loadScore();
 </script>
