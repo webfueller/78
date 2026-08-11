@@ -2,9 +2,17 @@
 
 Rehearse the week before you live it.
 
-Your accounts, forked into a shadow copy. An agent runs a week of real work
-inside the fork. You get a branch map of futures, commit one, and only then does
-anything touch the world -- with a receipt and a hard undo window behind it.
+You know how in a game you can save before a boss fight, try it, and reload if it
+goes badly? This is that, for a working week. It takes a copy of your mail and
+calendar and tries things inside the copy — send these four reminders, cancel the
+subscription you have not opened since March — guessing what each person would
+do from what they actually did before. You get a map of the ways the week could
+go and how likely each one is. You pick one. Only then does anything real happen,
+and you have a day to undo it.
+
+The same thing in the words the code uses: your accounts are forked into a shadow
+copy, an agent runs a week of real work inside the fork, and you commit one
+branch of the resulting map — with a receipt and a hard undo window behind it.
 
 **The app runs.** `pip install -e . && antechamber demo` opens a local page where
 you pick a mandate, rehearse the week, read the branch map, save it as an image,
