@@ -34,9 +34,13 @@ THREAD = "th_pasted"
 
 # "On Mon, Aug 4, 2026 at 9:12 AM Ana Reyes <ana@example.com> wrote:"
 # "On 4 Aug 2026, at 09:12, Ana Reyes <ana@example.com> wrote:"
+# One quantifier over the leading run, not two overlapping ones. `\s*[>\s]*`
+# could split a run of whitespace between the two in quadratically many ways, so
+# a line of spaces that never reaches "On" cost 100 seconds of backtracking --
+# reachable by anyone who could POST to /api/paste.
 QUOTE = re.compile(
-    r"^\s*[>\s]*On\s+(?P<blob>.{6,140}?)\s*"
-    r"<(?P<addr>[^<>\s@]+@[^<>\s]+)>\s*wrote:\s*$",
+    r"^[>\s]*On[ \t]+(?P<blob>.{6,140}?)[ \t]*"
+    r"<(?P<addr>[^<>\s@]+@[^<>\s]+)>[ \t]*wrote:[ \t]*$",
     re.MULTILINE,
 )
 

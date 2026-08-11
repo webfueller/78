@@ -448,11 +448,13 @@ def rehearse(
             "expected": _expected(plan, w),
         })
 
+    supported = _mandate_support(w, mandate)
     weights, provenance = P_PREF.effective_weights(store)
     for p_ in plans_out:
         p_["features"] = P_PREF.features(p_["expected"], len(p_["actions"]))
         p_["utility"] = round(_utility(p_["expected"], len(p_["actions"]), weights), 3)
     best = max(plans_out, key=lambda p_: p_["utility"])
+    sensitivity = _sensitivity(plans_out, weights, best["id"])
 
     # What was on the table, recorded now. A commit later turns this into one
     # observation of what this person actually values.
@@ -471,6 +473,8 @@ def rehearse(
         "weights_from": provenance,
         "plans": plans_out,
         "recommended": best["id"],
+        "sensitivity": sensitivity,
+        "mandate_support": supported,
     }
 
 
@@ -503,12 +507,82 @@ def _expected(plan: Plan, before: World) -> dict:
         a.payload.get("amount_cents", 0) for a in plan.actions
         if a.kind == E.SUBSCRIPTION_CANCELLED
     )
+    # A plan can open threads as well as close them: pre-confirming a meeting
+    # starts a new conversation. Counting only the replies made the summary
+    # disagree with the futures printed next to it.
+    opened = len({
+        a.entity for a in plan.actions
+        if a.kind == E.MESSAGE_SENT and a.entity not in before.threads
+    })
     return {
         "replies": round(replies, 3),
         "meetings_moved": round(sum(u.p for u in plan.uncertain if u.resolver == "meeting_moves"), 3),
         "late_surprises": round(sum(u.p for u in plan.uncertain if u.late), 3),
-        "threads_open": round(len(before.open_threads()) - replies, 3),
+        "threads_open": round(len(before.open_threads()) + opened - replies, 3),
         "burn_saved_cents": burn,
+    }
+
+
+def _mandate_support(w: World, mandate: Sequence[str]) -> List[dict]:
+    """Which parts of the mandate this twin can actually act on.
+
+    The synthetic world emits seven kinds of event; an mbox and an ICS export
+    between them produce four. The three that are missing -- subscriptions
+    observed, subscriptions charged, meetings moved -- are exactly what "cut what
+    I don't use" needs and what gives "defend the calendar" anything to measure.
+    So on real imported mail a mandate can quietly do nothing, and the interface
+    used to show that as a shorter list of plans rather than as an answer.
+    """
+    have_subs = any(s.state == "active" for s in w.subscriptions.values())
+    have_moves = any(m.moves for m in w.meetings.values())
+    have_meetings = bool(w.meetings)
+
+    reasons = {
+        "chase": (bool(w.open_threads()), "no thread is waiting on anyone"),
+        "prune": (have_subs, "this twin has no subscriptions in it — mbox and ICS "
+                             "imports carry mail and meetings, not charges"),
+        "defend": (have_meetings, "this twin has no meetings in it"),
+    }
+    out = []
+    for name in mandate:
+        ok, why = reasons.get(name, (True, ""))
+        note = "" if ok else why
+        if name == "defend" and ok and not have_moves:
+            note = ("no meeting in this history has ever moved, so the odds below are "
+                    "the population prior rather than anything measured about these people")
+        out.append({"mandate": name, "usable": ok, "note": note})
+    return out
+
+
+def _sensitivity(plans: List[dict], weights: Dict[str, float], winner: str) -> dict:
+    """How much of this recommendation is the weights rather than the week.
+
+    One of these weights is worth a whole predicted reply per cancelled
+    subscription, and it was a guess. If halving or doubling it changes the
+    answer, the person deserves to know that before they act on it -- a margin
+    that thin is a coin toss, not a finding.
+    """
+    ranked = sorted(plans, key=lambda p: -p["utility"])
+    margin = round(ranked[0]["utility"] - ranked[1]["utility"], 3) if len(ranked) > 1 else None
+
+    flips = []
+    for key in sorted(weights):
+        for factor, label in ((0.1, "a tenth"), (0.5, "half"), (2.0, "double")):
+            probe = dict(weights)
+            probe[key] = weights[key] * factor
+            alt = max(plans, key=lambda p: P_PREF.utility(p["features"], probe))
+            if alt["id"] != winner:
+                flips.append({"weight": key, "at": label, "instead": alt["name"]})
+                break
+
+    return {
+        "margin": margin,
+        "runner_up": ranked[1]["name"] if len(ranked) > 1 else None,
+        "flips_under": flips,
+        "verdict": (
+            "the recommendation turns on a weight that is a guess"
+            if flips else "no single weight decides this one"
+        ),
     }
 
 

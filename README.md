@@ -25,7 +25,7 @@ Strategy memo, including the four concepts that were considered and rejected:
 
 | | |
 |---|---|
-| **Append-only log** | Every fact is an immutable, hash-chained event. Tampering is detectable; nothing is ever updated in place. |
+| **Append-only log** | Every fact is an immutable, hash-chained event. In-place edits and mid-chain deletions are detected; nothing is ever updated in place. |
 | **The fork** | A branch sees its ancestors' history *up to the instant it forked* and nothing after, so a rehearsal stays reproducible forever while the trunk moves on. |
 | **Deterministic replay** | Any branch projects to a world state with a stable hash. Same events, same hash, always. |
 | **Commit and undo** | Promoting a fork writes a receipt and opens a 24h window. An undo appends; the projection stops applying the commit. History of what was almost done survives. |
@@ -36,6 +36,39 @@ Strategy memo, including the four concepts that were considered and rejected:
 | **Ingestion** | mbox and ICS in, same event kinds out. Everything downstream cannot tell imported data from generated data. |
 | **One pasted thread** | `/paste` turns a reply chain into a throwaway twin held in memory for one request. No account, nothing written down. |
 | **The shareable card** | The map exports as PNG or SVG, self-contained, carrying no names, no subjects and no message text. |
+
+## Two things a review caught that the README was quiet about
+
+**"Commit executes for real" does not send email.** There is no SMTP client in
+this repository and no egress anywhere. Committing writes the actions onto the
+trunk as things that happened, which is what makes the receipt, the state hash
+and the undo meaningful — but the mail connection that would make it literally
+true is not built. The interface now says so at the commit button. Wiring real
+delivery is a deliberate, separate step, and the undo window has to be rethought
+when it happens: you can withdraw a row from a local log, and you cannot
+withdraw a message someone has already read.
+
+**The demo and an imported mailbox are not the same product.** `synthetic.py`
+emits seven kinds of event; an mbox and an ICS export between them produce four.
+The three that are missing — `money.subscription_observed`, `money.charged`,
+`calendar.moved` — are exactly what "cut what I don't use" needs, and what gives
+"defend the calendar" anything to measure. So on real mail, `prune` cannot fire
+at all and `defend` runs on a population prior rather than on evidence.
+
+The rehearsal payload now carries `mandate_support`, and the answer is a
+sentence rather than a silently shorter list of plans:
+
+```
+imported mail:  chase  ok
+                prune  DEAD — this twin has no subscriptions in it
+                defend ok, but no meeting here has ever moved, so the odds are
+                       the population prior rather than anything measured
+```
+
+Closing that gap means parsing charges out of receipt mail and diffing repeated
+calendar exports to recover moves. Until then, the honest framing is that this
+does one thing on your real mail — chasing what has gone quiet — and the other
+two mandates are waiting on ingestion that does not exist yet.
 
 ## What is deliberately not here
 
@@ -55,7 +88,7 @@ scoreboard can be checked against an answer key.
 Standard library only, no dependencies. Tested on Python 3.11.
 
 ```bash
-python3 -m unittest discover -s tests      # 65 tests, ~70s
+python3 -m unittest discover -s tests      # 113 tests, ~150s
 
 export DB=/tmp/antechamber.db
 A="python3 -m antechamber.cli --db $DB"
@@ -148,16 +181,41 @@ Three predictors, ordered by how well specified they are. The synthetic world
 gives every contact a different reply rate and latency, so the correct ranking is
 known in advance and the harness has to recover it.
 
-| predictor | Brier | vs. baseline | verdict |
-|---|---|---|---|
-| `global` — one rate for everyone | 0.2341 | −3.4% | does not beat baseline |
-| `per-contact` — who you are waiting on | 0.1502 | **+33.7%** | beats baseline |
-| `per-contact-age` — who, and how long already | 0.1416 | **+37.5%** | beats baseline |
+| seed | claims | `global` | `per-contact` | `per-contact-age` |
+|---|---|---|---|---|
+| 3 | 999 | −5.1% | +32.8% | **+35.1%** |
+| 5 | 1023 | +0.1% | +26.0% | **+33.7%** |
+| 7 | 849 | +0.8% | +29.3% | **+39.4%** |
+| 11 | 858 | −0.2% | +16.0% | **+23.9%** |
+| 13 | 1026 | −0.6% | +32.1% | **+42.1%** |
 
 Baseline is the leave-one-out base rate: a constant, scored without letting it
 see its own answer. `global` failing to beat it is the correct result -- it is
 the same idea wearing a different hat, and a scoreboard that credited it would be
 rewarding noise.
+
+**Two caveats, because an earlier version of this table did not carry them.**
+
+*The number is a range, not a number.* This README used to quote a single
++37.5%. The lift runs +24% to +42% across seeds. The *ranking* holds on every
+seed, holdout (30–120 days) and history length (120–365 days) tried, but the
+magnitude is one draw and quoting it alone was overclaiming.
+
+*`global` losing is not guaranteed.* It lands between −5% and +1% here, and on
+some configurations it edges past the baseline. That is the expected behaviour
+of a constant scored against a constant, and any reading of the table that
+treats "global must lose" as a law is reading too much into noise.
+
+**The earlier version of this measurement did not test what it claimed to.**
+Claims used to be sampled only at the instant a message went out, so every
+scored question had `age = 0` — and a predictor named for elapsed time was never
+once asked about elapsed time. `per-contact-age` won because it was the only
+predictor whose rates were measured on the cohort it was asked about; a
+per-contact model restricted to that same cohort, with no age term at all,
+scored within a point of it. The backtest now revisits each send on the two
+following days while it is still unanswered, so the age buckets actually
+exercised are 0, 1 and 2 days and roughly a third of the claims are about a
+thread that has already been waiting. The numbers above are from that version.
 
 Two real bugs surfaced on the way to those numbers, both of the kind that make a
 backtest quietly lie:
@@ -210,6 +268,21 @@ the renderer and fails if it ever starts touching a contact, a subject or a body
 Colours in the card are literals, not CSS variables: an exported SVG has no
 stylesheet to inherit from, and a map that renders correctly in the app and grey
 on someone's timeline is worse than no export at all.
+
+## What the integrity check does and does not catch
+
+`replay --verify` recomputes the whole chain. It detects a rewritten payload and
+a deleted event in the middle. It does **not** detect the tail being truncated,
+or a forged event followed by recomputing every hash after it — there is no
+signature and no anchor outside the events table, so an attacker with write
+access to the file can produce a chain that verifies.
+
+That matters because the threat model here is somebody's mail on a laptop, where
+an adversary with file access is exactly the relevant one. Truncation is also the
+cheapest useful attack, since it is what erases a commit receipt. A signed head
+hash and event count, kept outside the table, would close it. Until that exists
+the honest claim is the one above: accidental corruption and in-place edits, not
+a determined adversary.
 
 ## The rule that is code, not policy
 

@@ -10,6 +10,7 @@ Two rules are enforced here rather than documented:
 from __future__ import annotations
 
 import hashlib
+import time
 from typing import List, Optional
 
 from . import events as E
@@ -40,83 +41,101 @@ def promotable(store: EventStore, branch: str) -> List[E.Event]:
 
 
 def already_promoted(store: EventStore) -> set:
-    """Source hashes the trunk has executed before, undone or not."""
+    """Source hashes the trunk has executed before, undone or not.
+
+    Reads OPENED as well as SEALED. A commit that died between the two still
+    sent real messages, and a guard that only looks at completed commits would
+    cheerfully send them again.
+    """
     seen = set()
     for ev in store.read(TRUNK):
         if ev.kind == E.COMMIT_SEALED:
             seen.update(ev.payload.get("source_hashes", []))
+        elif ev.kind == E.COMMIT_OPENED:
+            seen.update(a["source_hash"] for a in ev.payload.get("actions", []))
     return seen
 
 
 def commit(store: EventStore, branch: str, at_ts: Optional[int] = None) -> dict:
+    """Execute a rehearsed plan for real. All of it, or none of it.
+
+    Everything below happens inside one IMMEDIATE transaction, including the
+    check for actions that already ran. Reading the guard outside the write was
+    a race with a very concrete consequence: two sibling futures committed at the
+    same moment both passed the check and both sent the same eight messages.
+    """
     if branch == TRUNK:
         raise StoreError("the trunk is not a proposal")
-    row = store.require_branch(branch)
-    if row["status"] != "open":
-        raise StoreError(f"branch {branch} is already {row['status']}")
 
-    actions = promotable(store, branch)
-    if not actions:
-        raise StoreError(
-            f"branch {branch} proposes nothing to execute — if the intent is to leave "
-            "the week alone, decline it instead so the choice is still recorded"
+    with store.transaction():
+        row = store.require_branch(branch)
+        if row["status"] != "open":
+            raise StoreError(f"branch {branch} is already {row['status']}")
+
+        actions = promotable(store, branch)
+        if not actions:
+            raise StoreError(
+                f"branch {branch} proposes nothing to execute — if the intent is to leave "
+                "the week alone, decline it instead so the choice is still recorded"
+            )
+
+        # Sibling futures share their plan's actions. Picking a second future must
+        # not send the same message twice.
+        done = already_promoted(store)
+        clash = [a for a in actions if a.hash in done]
+        if clash:
+            raise StoreError(
+                f"{len(clash)} of these actions were already executed by an earlier commit "
+                f"(first: {clash[0].kind} on {clash[0].entity})"
+            )
+
+        ts = store.now(TRUNK) if at_ts is None else at_ts
+        before = project(store.read(TRUNK)).state_hash()
+        cid = _commit_id(branch, [a.hash for a in actions])
+        sealed_wall = int(time.time())
+
+        store.append(
+            branch=TRUNK, kind=E.COMMIT_OPENED, entity=cid, actor=E.ACTOR_AGENT, ts=ts,
+            payload={
+                "branch": branch,
+                "actions": [
+                    {"kind": a.kind, "entity": a.entity, "source_hash": a.hash} for a in actions
+                ],
+                "state_before": before,
+            },
         )
 
-    # Sibling futures share their plan's actions. Picking a second future must not
-    # send the same message twice.
-    done = already_promoted(store)
-    clash = [a for a in actions if a.hash in done]
-    if clash:
-        raise StoreError(
-            f"{len(clash)} of these actions were already executed by an earlier commit "
-            f"(first: {clash[0].kind} on {clash[0].entity})"
+        # A proposal carries timestamps from the fork's own timeline, which may sit
+        # ahead of the trunk. Executing it can move the world clock forward; it can
+        # never move it back.
+        promoted = []
+        clock = ts
+        for a in actions:
+            clock = max(clock, a.ts)
+            ev = store.append(
+                branch=TRUNK, kind=a.kind, entity=a.entity, actor=E.ACTOR_AGENT,
+                ts=clock, payload=a.payload, commit_id=cid,
+            )
+            promoted.append(ev.hash)
+
+        after = project(store.read(TRUNK)).state_hash()
+        store.append(
+            branch=TRUNK, kind=E.COMMIT_SEALED, entity=cid, actor=E.ACTOR_AGENT, ts=clock,
+            payload={
+                "branch": branch,
+                "source_hashes": [a.hash for a in actions],
+                "promoted_hashes": promoted,
+                "state_before": before,
+                "state_after": after,
+                "sealed_wall": sealed_wall,
+                "undo_until": sealed_wall + UNDO_WINDOW,
+            },
         )
+        store.set_status(branch, "committed")
 
-    ts = store.now(TRUNK) if at_ts is None else at_ts
-    before = project(store.read(TRUNK)).state_hash()
-    cid = _commit_id(branch, [a.hash for a in actions])
-
-    store.append(
-        branch=TRUNK, kind=E.COMMIT_OPENED, entity=cid, actor=E.ACTOR_AGENT, ts=ts,
-        payload={
-            "branch": branch,
-            "actions": [
-                {"kind": a.kind, "entity": a.entity, "source_hash": a.hash} for a in actions
-            ],
-            "state_before": before,
-        },
-    )
-
-    # A proposal carries timestamps from the fork's own timeline, which may sit
-    # ahead of the trunk. Executing it can move the world clock forward; it can
-    # never move it back.
-    promoted = []
-    clock = ts
-    for a in actions:
-        clock = max(clock, a.ts)
-        ev = store.append(
-            branch=TRUNK, kind=a.kind, entity=a.entity, actor=E.ACTOR_AGENT,
-            ts=clock, payload=a.payload, commit_id=cid,
-        )
-        promoted.append(ev.hash)
-
-    after = project(store.read(TRUNK)).state_hash()
-    store.append(
-        branch=TRUNK, kind=E.COMMIT_SEALED, entity=cid, actor=E.ACTOR_AGENT, ts=clock,
-        payload={
-            "branch": branch,
-            "source_hashes": [a.hash for a in actions],
-            "promoted_hashes": promoted,
-            "state_before": before,
-            "state_after": after,
-            "undo_until": clock + UNDO_WINDOW,
-        },
-    )
-    store.set_status(branch, "committed")
-
-    # Committing this future rather than its siblings is the only unambiguous
-    # statement of preference the product ever gets. Record it.
-    chosen_for = preferences.record_choice(store, branch, at=clock)
+        # Committing this future rather than its siblings is the only unambiguous
+        # statement of preference the product ever gets. Record it.
+        chosen_for = preferences.record_choice(store, branch, at=clock)
 
     return {
         "learned_from": chosen_for,
@@ -126,7 +145,8 @@ def commit(store: EventStore, branch: str, at_ts: Optional[int] = None) -> dict:
         "state_before": before,
         "state_after": after,
         "sealed_at": clock,
-        "undo_until": clock + UNDO_WINDOW,
+        "sealed_wall": sealed_wall,
+        "undo_until": sealed_wall + UNDO_WINDOW,
     }
 
 
@@ -140,12 +160,17 @@ def undo(store: EventStore, commit_id: str, at_ts: Optional[int] = None) -> dict
     if c["state"] != "sealed":
         raise StoreError(f"{commit_id} is {c['state']}; only a sealed commit can be undone")
 
-    ts = store.now(TRUNK) if at_ts is None else at_ts
-    deadline = c["receipt"]["undo_until"]
-    if ts > deadline:
+    # The window is measured against the wall clock, not the world clock. World
+    # time is whatever the last event says it is: it does not advance while the
+    # twin sits idle, and one imported message can jump it forward by months. A
+    # receipt that promises "24 hours" has to mean the reader's 24 hours.
+    now_wall = int(time.time()) if at_ts is None else at_ts
+    deadline = c["receipt"].get("undo_until")
+    if deadline is not None and now_wall > deadline:
         raise StoreError(
-            f"undo window closed for {commit_id} at {deadline}; it is now {ts}"
+            f"undo window closed for {commit_id} at {deadline}; it is now {now_wall}"
         )
+    ts = store.now(TRUNK)
 
     store.append(
         branch=TRUNK, kind=E.COMMIT_UNDONE, entity=commit_id, actor=E.ACTOR_USER, ts=ts,

@@ -1,10 +1,20 @@
 """The app: a JSON API over the twin, and the page that draws it.
 
-Standard library only, one SQLite connection per request. This is a single-user
-local server -- the twin holds somebody's mail, so it binds to loopback and
-carries no auth story it cannot honour. Multi-tenant hosting is a different
-program with a different threat model, and pretending otherwise in a comment
-would be how that gets forgotten.
+Standard library only, one SQLite connection per request.
+
+Binding to loopback is not an authorisation boundary, and treating it as one was
+a real hole: any web page the user happened to have open could POST here. A
+cross-origin `text/plain` POST is a CORS *simple request*, so it needs no
+preflight; the attacker cannot read the reply, but the side effects land. A page
+served from another port cancelled three subscriptions and sent four messages on
+a running instance with no interaction at all -- the branch name is a hash of
+documented defaults, so it can be computed offline and fired blind.
+
+Three checks close it, and they are cheap: a cross-origin `Origin` is refused, a
+`Host` that is not this loopback address is refused (which is what stops DNS
+rebinding turning `/api/world` into a mailbox reader), and writes are confined to
+POST. This is still a single-user local program; it now behaves like one under
+attack rather than only when nobody is trying.
 """
 
 from __future__ import annotations
@@ -12,6 +22,7 @@ from __future__ import annotations
 import json
 import mimetypes
 import os
+import sqlite3
 import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Optional
@@ -97,9 +108,13 @@ def branch_payload(store: EventStore, branch: str) -> dict:
     }
 
 
+MAX_HORIZON_DAYS = 90
+
+
 class Handler(BaseHTTPRequestHandler):
     db = "antechamber.db"
     server_version = "antechamber"
+    allowed_hosts: frozenset = frozenset()
 
     def log_message(self, fmt, *args):  # quieter than the default
         pass
@@ -117,9 +132,55 @@ class Handler(BaseHTTPRequestHandler):
     def _json(self, obj, code: int = 200) -> None:
         self._send(code, json.dumps(obj, default=str).encode("utf-8"), "application/json")
 
+    MAX_BODY = 1 << 21
+
     def _body(self) -> dict:
-        n = int(self.headers.get("Content-Length") or 0)
+        raw = self.headers.get("Content-Length") or "0"
+        if not raw.strip().isdigit():
+            raise ValueError("Content-Length is not a number")
+        n = int(raw)
+        if n > self.MAX_BODY:
+            raise ValueError("body too large")
         return json.loads(self.rfile.read(n) or b"{}")
+
+    LOOPBACK = frozenset({"127.0.0.1", "localhost", "::1", "[::1]"})
+
+    def _hosts(self) -> frozenset:
+        port = self.server.server_address[1]
+        return frozenset(self.allowed_hosts) or frozenset({
+            f"127.0.0.1:{port}", f"localhost:{port}", f"[::1]:{port}",
+        })
+
+    def _own_host(self, host: str) -> bool:
+        """Is this Host header us?
+
+        What DNS rebinding needs is a *name* that can be pointed somewhere else,
+        so the test is on the hostname. A bare loopback literal with no port is
+        still unmistakably us; a port, when given, has to be ours.
+        """
+        name, _, port = host.rpartition(":") if ":" in host.rstrip("]") else (host, "", "")
+        name = (name or host).strip("[]")
+        if name not in {h.strip("[]") for h in self.LOOPBACK}:
+            return False
+        return not port or port == str(self.server.server_address[1])
+
+    def _permitted(self) -> Optional[str]:
+        """Why this request should not be served, or None."""
+        hosts = self._hosts()
+        host = (self.headers.get("Host") or "").strip().lower()
+        if host and not self._own_host(host):
+            return (
+                f"Host {host!r} is not this server. Reach it at {sorted(hosts)[0]}."
+            )
+        origin = self.headers.get("Origin")
+        if origin and origin.lower() not in {f"http://{h}" for h in hosts}:
+            return (
+                f"Refusing a request from {origin}. This server acts on somebody's mail; "
+                "another site may not drive it."
+            )
+        if self.headers.get("Sec-Fetch-Site") in {"cross-site", "same-site"}:
+            return "Refusing a cross-site request."
+        return None
 
     def _static(self, path: str) -> None:
         if path == "/favicon.ico":
@@ -139,24 +200,35 @@ class Handler(BaseHTTPRequestHandler):
     # ------------------------------------------------------------------- routes
 
     def do_GET(self) -> None:
+        refused = self._permitted()
+        if refused:
+            self._json({"error": refused}, 403)
+            return
         url = urlparse(self.path)
-        q = parse_qs(url.query)
         if not url.path.startswith("/api/"):
             self._static(url.path)
             return
-        self._dispatch(url.path, q, None)
+        self._dispatch(url.path, parse_qs(url.query), None)
 
     def do_POST(self) -> None:
-        url = urlparse(self.path)
+        refused = self._permitted()
+        if refused:
+            self._json({"error": refused}, 403)
+            return
         try:
             body = self._body()
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, ValueError):
+            # Malformed framing used to escape to the socket layer and drop the
+            # connection with no reply at all.
             self._json({"error": "body was not JSON"}, 400)
             return
-        self._dispatch(url.path, {}, body)
+        self._dispatch(urlparse(self.path).path, {}, body)
 
     def _dispatch(self, path: str, q: dict, body: Optional[dict]) -> None:
-        store = EventStore(self.db)
+        # Opened after the route is known: `/api/paste` promises nothing is
+        # stored, and creating the database file on the way past made that false
+        # in the one way a person could check.
+        store = EventStore(":memory:" if path == "/api/paste" else self.db)
         try:
             if path == "/api/world":
                 self._json(world_payload(store, q.get("branch", [TRUNK])[0]))
@@ -191,7 +263,7 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError("That is larger than a thread. Paste one conversation.")
                 self._json(paste.rehearse_paste(
                     text, me=body.get("me", ""),
-                    horizon_days=int(body.get("horizon_days", 7)),
+                    horizon_days=_horizon(body),
                 ))
 
             elif path == "/api/rehearse":
@@ -202,7 +274,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(rehearse.rehearse(
                     store,
                     mandate=body.get("mandate") or ["chase", "prune", "defend"],
-                    horizon_days=int(body.get("horizon_days", 7)),
+                    horizon_days=_horizon(body),
                 ))
 
             elif path == "/api/commit":
@@ -226,6 +298,8 @@ class Handler(BaseHTTPRequestHandler):
 
         except (StoreError, ValueError, KeyError) as exc:
             self._json({"error": str(exc)}, 400)
+        except sqlite3.Error as exc:
+            self._json({"error": f"the store refused that: {exc}"}, 409)
         except Exception as exc:  # noqa: BLE001 - surface it, do not swallow it
             traceback.print_exc()
             self._json({"error": f"{type(exc).__name__}: {exc}"}, 500)
@@ -233,8 +307,22 @@ class Handler(BaseHTTPRequestHandler):
             store.close()
 
 
+def _horizon(body: dict) -> int:
+    """A horizon is walked a day at a time, so an unbounded one is a free CPU burn."""
+    try:
+        days = int(body.get("horizon_days", 7))
+    except (TypeError, ValueError):
+        raise ValueError("horizon_days must be a number")
+    if not 1 <= days <= MAX_HORIZON_DAYS:
+        raise ValueError(f"horizon_days must be between 1 and {MAX_HORIZON_DAYS}")
+    return days
+
+
 def serve(db: str, host: str = "127.0.0.1", port: int = 8787) -> None:
     Handler.db = db
+    Handler.allowed_hosts = frozenset({
+        f"127.0.0.1:{port}", f"localhost:{port}", f"[::1]:{port}",
+    })
     httpd = ThreadingHTTPServer((host, port), Handler)
     print(f"antechamber on http://{host}:{port}  (db: {db})")
     try:

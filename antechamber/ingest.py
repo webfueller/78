@@ -118,14 +118,31 @@ def read_mbox(path: str, me: Sequence[str]) -> List[dict]:
 _ICS_TS = re.compile(r"^(\d{4})(\d{2})(\d{2})T?(\d{2})?(\d{2})?(\d{2})?Z?$")
 
 
-def _ics_time(value: str) -> Optional[int]:
-    import calendar as _cal
+def _ics_time(value: str, tzid: str = "") -> Optional[int]:
+    """An ICS timestamp, honouring its zone.
 
-    m = _ICS_TS.match(value.strip())
+    A bare `DTSTART:20260804T090000` is floating local time, a trailing Z is UTC,
+    and `DTSTART;TZID=America/New_York:...` is neither. Treating all three as UTC
+    put every meeting from a normal calendar hours away from where it belongs,
+    which then moved the claims keyed to its start.
+    """
+    import calendar as _cal
+    from datetime import datetime, timezone
+
+    raw = value.strip()
+    m = _ICS_TS.match(raw)
     if not m:
         return None
     y, mo, d, h, mi, s = (int(g) if g else 0 for g in m.groups())
-    return _cal.timegm((y, mo, d, h, mi, s, 0, 0, 0))
+
+    if raw.endswith("Z") or not tzid:
+        return _cal.timegm((y, mo, d, h, mi, s, 0, 0, 0))
+    try:
+        from zoneinfo import ZoneInfo
+
+        return int(datetime(y, mo, d, h, mi, s, tzinfo=ZoneInfo(tzid)).timestamp())
+    except Exception:  # noqa: BLE001 - an unknown zone is not a reason to lose the event
+        return _cal.timegm((y, mo, d, h, mi, s, 0, 0, 0))
 
 
 def read_ics(path: str) -> List[dict]:
@@ -143,6 +160,7 @@ def read_ics(path: str) -> List[dict]:
     out: List[dict] = []
     for block in re.findall(r"BEGIN:VEVENT(.*?)END:VEVENT", raw, re.S):
         fields: Dict[str, str] = {}
+        zones: Dict[str, str] = {}
         attendees: List[str] = []
         for line in block.splitlines():
             if ":" not in line:
@@ -153,10 +171,13 @@ def read_ics(path: str) -> List[dict]:
                 attendees.append(_cid(value.replace("mailto:", "")))
             else:
                 fields[name] = value.strip()
-        start = _ics_time(fields.get("DTSTART", ""))
+                zone = re.search(r"TZID=([^;:]+)", key)
+                if zone:
+                    zones[name] = zone.group(1).strip()
+        start = _ics_time(fields.get("DTSTART", ""), zones.get("DTSTART", ""))
         if start is None:
             continue
-        end = _ics_time(fields.get("DTEND", "")) or start + HOUR
+        end = _ics_time(fields.get("DTEND", ""), zones.get("DTEND", "")) or start + HOUR
         uid = fields.get("UID") or f"{start}"
         out.append({
             "ts": start - 7 * 24 * HOUR,  # it was on the calendar before it happened
@@ -176,20 +197,27 @@ def ingest(store: EventStore, records: Iterable[dict], branch: str = TRUNK) -> d
     """Sort everything by world time and append. Order is the whole contract."""
     rows = sorted(records, key=lambda r: r["ts"])
     seen: set = set()
-    written = skipped = 0
+    written = skipped = contacts_skipped = 0
 
     for r in rows:
         contact = r.pop("_contact", None)
         if contact and contact[0] not in seen:
             seen.add(contact[0])
-            store.append(branch=branch, kind=E.CONTACT_OBSERVED, entity=contact[0],
-                         actor=E.ACTOR_WORLD, ts=r["ts"],
-                         payload={"name": contact[1], "address": contact[2]})
+            try:
+                # Importing a second, older archive backdates the first contact
+                # it meets. That is a reason to skip one bookkeeping event, not
+                # to throw away the whole import.
+                store.append(branch=branch, kind=E.CONTACT_OBSERVED, entity=contact[0],
+                             actor=E.ACTOR_WORLD, ts=r["ts"],
+                             payload={"name": contact[1], "address": contact[2]})
+            except Exception:  # noqa: BLE001
+                contacts_skipped += 1  # a record is still a record; this is not one
         try:
             store.append(branch=branch, **r)
             written += 1
         except Exception:  # noqa: BLE001 - one bad record must not lose the import
             skipped += 1
 
-    return {"written": written, "skipped": skipped, "contacts": len(seen),
+    return {"written": written, "skipped": skipped,
+            "contacts": len(seen) - contacts_skipped, "contacts_skipped": contacts_skipped,
             "span": [rows[0]["ts"], rows[-1]["ts"]] if rows else None}

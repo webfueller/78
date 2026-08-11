@@ -31,20 +31,46 @@ from .store import TRUNK, EventStore
 from .world import project
 
 DAY = 24 * 3600
+AGES = 3  # a send is asked about on the day, and for two days after
 
 
 def moments(store: EventStore, t0: int, now: int, horizon: int) -> List[Tuple[int, str, str]]:
     """Every instant in the holdout where the product would have made a claim."""
     found: List[Tuple[int, str, str]] = []
 
+    # Sampling only at the instant a message goes out means every scored question
+    # has age zero, and a predictor named for elapsed time is never asked about
+    # it. Each send is also revisited on the following days while it is still
+    # unanswered -- which is exactly when a person looks at a thread and wonders.
+    world = project(store.read(TRUNK))
     for ev in store.read(TRUNK):
-        if ev.kind == E.MESSAGE_SENT and t0 <= ev.ts and ev.ts + horizon <= now:
-            found.append((ev.ts, "thread", ev.entity))
+        if ev.kind != E.MESSAGE_SENT or ev.ts < t0:
+            continue
+        thread = world.threads.get(ev.entity)
+        for age in range(0, AGES):
+            at = ev.ts + age * DAY
+            if at + horizon > now:
+                break
+            if age and thread is not None and thread.reply_after(
+                thread.counterparty, ev.ts, at
+            ) is not None:
+                break  # answered already; the question is no longer open
+            found.append((at, "thread", ev.entity))
 
-    for m in project(store.read(TRUNK)).meetings.values():
+    # Same problem as threads had: one lead time meant one bucket, and "how long
+    # until it starts" is the other half of the variable being claimed for.
+    for m in world.meetings.values():
         start = m.moves[0]["from"] if m.moves else m.start  # as first known
-        at = start - horizon
-        if t0 <= at and start <= now:
+        if start > now:
+            continue
+        # A lead longer than the horizon is not a question the predictor is
+        # allowed to answer -- `_claims` only speaks about meetings inside it.
+        for lead in range(1, min(AGES, max(1, horizon // DAY)) + 1):
+            at = start - lead * DAY
+            if at < t0:
+                break
+            if any(mv["ts"] <= at for mv in m.moves):
+                break  # already moved; no longer an open question
             found.append((at, "meeting", m.id))
 
     found.sort()

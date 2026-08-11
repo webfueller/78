@@ -626,7 +626,8 @@ async function selectFuture(pi, bj) {
     </div>`).join("") : `<p class="empty">Nothing happens. That is the plan.</p>`;
 
   $("#committext").textContent = detail.committable
-    ? `${plural(detail.committable, "action", "actions")} would run for real. The simulated replies ` +
+    ? `${plural(detail.committable, "action", "actions")} would be committed to the record. ` +
+      `Nothing is sent yet — there is no mail connection, by design. The simulated replies ` +
       `stay in the fork — the store refuses to promote them.`
     : "This plan proposes no actions, so there is nothing to commit.";
   $("#commit").hidden = !detail.committable;
@@ -698,10 +699,11 @@ $("#commit").addEventListener("click", async () => {
     LAST_COMMIT = r.commit_id;
     // The honest comparison: the rehearsal minus its simulated replies.
     const matches = r.state_after === DETAIL.state_hash_real;
-    // Against the twin's clock, not the browser's. On seeded or imported history
-    // those are months apart, and the old sum reported "0h left" on a window
-    // that had barely opened.
-    const hrs = WORLD_CLOCK ? Math.round((r.undo_until - WORLD_CLOCK) / 3600) : null;
+    // The window is wall-clock now: the twin's clock does not advance while
+    // nobody is using it, and one imported message could jump it forward past
+    // the deadline. "24 hours" has to mean the reader's 24 hours, so the number
+    // is measured against the reader's clock.
+    const hrs = Math.round((r.undo_until * 1000 - Date.now()) / 3.6e6);
     $("#receipt").innerHTML = `
       <div><b>Commit</b><span>${esc(r.commit_id)} · ${plural(r.actions, "action", "actions")}</span></div>
       <div><b>Before</b><span>${esc(r.state_before.slice(0,28))}…</span></div>
@@ -710,7 +712,7 @@ $("#commit").addEventListener("click", async () => {
         ? "matches — every real action landed exactly as previewed"
         : "▲ differs from the rehearsal — investigate before trusting this"}</span></div>
       <div><b>Undo until</b><span>${esc(wday(r.undo_until))} ${esc(clock(r.undo_until))}` +
-        `${hrs !== null ? ` · about ${hrs}h left on the twin's clock` : ""}</span></div>`;
+        ` · about ${hrs}h left</span></div>`;
     $("#commit").hidden = true; $("#undo").hidden = false;
     $("#committext").textContent = "Committed. The undo below appends a reversal — it does not erase the record.";
     loadWorld();

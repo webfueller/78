@@ -42,6 +42,10 @@ ACTOR_USER = "user"
 ACTOR_AGENT = "agent"
 SIM_PREFIX = "sim:"
 
+# What the trunk will accept. A whitelist rather than a `sim:` blacklist: the
+# quarantine should not depend on nobody ever writing "SIM:" or a Cyrillic s.
+REAL_ACTORS = frozenset({ACTOR_WORLD, ACTOR_USER, ACTOR_AGENT})
+
 
 def is_simulated(actor: str) -> bool:
     """Simulated counterparties are quarantined by actor, not by convention.
@@ -50,7 +54,12 @@ def is_simulated(actor: str) -> bool:
     guarantee behind the rule that a simulated person's words never escape the
     owner's private preview.
     """
-    return actor.startswith(SIM_PREFIX)
+    # Normalised, because `promotable` and the projection both lean on this and
+    # "SIM:ana" or " sim:ana" reading as real would be a quiet disaster. The
+    # actual guarantee is the REAL_ACTORS whitelist on the trunk above; this is
+    # the second lock, not the first.
+    cleaned = actor.replace("\u200b", "").replace("\ufeff", "").strip().casefold()
+    return cleaned.startswith(SIM_PREFIX)
 
 
 def canonical(obj: Any) -> str:
