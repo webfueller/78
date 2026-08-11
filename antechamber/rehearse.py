@@ -26,6 +26,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 from . import events as E
 from . import predictions as P
+from . import preferences as P_PREF
 from .predictors import REGISTRY, PerContactAge, Predictor
 from .store import TRUNK, EventStore
 from .world import Thread, World, project
@@ -33,15 +34,12 @@ from .world import Thread, World, project
 HOUR = 3600
 DAY = 24 * HOUR
 
-# How the recommendation is scored. These are a guess -- placeholders until
-# revealed preferences replace them -- so they are exposed in the payload and
-# shown in the product rather than buried.
-WEIGHTS = {
-    "reply": 1.0,
-    "per_action": -0.25,
-    "burn_saved_per_1000c": 0.5,
-    "late_surprise": -1.0,
-}
+# How the recommendation is scored. The numbers here are a guess; `preferences`
+# replaces them with weights fitted to what you actually commit, once there are
+# enough commits and the fit beats the guess on choices it has not seen. Either
+# way the weights and their provenance go out in the payload, because a
+# recommendation whose scoring is hidden is just an assertion.
+WEIGHTS = dict(P_PREF.PRIOR)
 
 MAX_ACTIONS = 8       # a plan a person can read
 MAX_BRANCHES = 5      # futures shown per plan
@@ -450,9 +448,18 @@ def rehearse(
             "expected": _expected(plan, w),
         })
 
+    weights, provenance = P_PREF.effective_weights(store)
     for p_ in plans_out:
-        p_["utility"] = round(_utility(p_["expected"], len(p_["actions"])), 3)
+        p_["features"] = P_PREF.features(p_["expected"], len(p_["actions"]))
+        p_["utility"] = round(_utility(p_["expected"], len(p_["actions"]), weights), 3)
     best = max(plans_out, key=lambda p_: p_["utility"])
+
+    # What was on the table, recorded now. A commit later turns this into one
+    # observation of what this person actually values.
+    P_PREF.record_offer(store, rid, [
+        {"branch": p_["branch"], "plan": p_["id"], "features": p_["features"]}
+        for p_ in plans_out
+    ], at=now)
 
     return {
         "rehearsal": rid,
@@ -460,7 +467,8 @@ def rehearse(
         "now": now,
         "horizon_days": horizon_days,
         "mandate": list(mandate),
-        "weights": WEIGHTS,
+        "weights": weights,
+        "weights_from": provenance,
         "plans": plans_out,
         "recommended": best["id"],
     }
@@ -504,10 +512,5 @@ def _expected(plan: Plan, before: World) -> dict:
     }
 
 
-def _utility(exp: dict, actions: int) -> float:
-    return (
-        WEIGHTS["reply"] * exp["replies"]
-        + WEIGHTS["per_action"] * actions
-        + WEIGHTS["burn_saved_per_1000c"] * exp["burn_saved_cents"] / 1000.0
-        + WEIGHTS["late_surprise"] * exp["late_surprises"]
-    )
+def _utility(exp: dict, actions: int, weights: Dict[str, float]) -> float:
+    return P_PREF.utility(P_PREF.features(exp, actions), weights)

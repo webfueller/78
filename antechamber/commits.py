@@ -13,6 +13,7 @@ import hashlib
 from typing import List, Optional
 
 from . import events as E
+from . import preferences
 from .store import TRUNK, EventStore, StoreError
 from .world import project
 
@@ -56,7 +57,10 @@ def commit(store: EventStore, branch: str, at_ts: Optional[int] = None) -> dict:
 
     actions = promotable(store, branch)
     if not actions:
-        raise StoreError(f"branch {branch} proposes nothing the agent authored")
+        raise StoreError(
+            f"branch {branch} proposes nothing to execute — if the intent is to leave "
+            "the week alone, decline it instead so the choice is still recorded"
+        )
 
     # Sibling futures share their plan's actions. Picking a second future must not
     # send the same message twice.
@@ -109,7 +113,13 @@ def commit(store: EventStore, branch: str, at_ts: Optional[int] = None) -> dict:
         },
     )
     store.set_status(branch, "committed")
+
+    # Committing this future rather than its siblings is the only unambiguous
+    # statement of preference the product ever gets. Record it.
+    chosen_for = preferences.record_choice(store, branch, at=clock)
+
     return {
+        "learned_from": chosen_for,
         "commit_id": cid,
         "branch": branch,
         "actions": len(actions),

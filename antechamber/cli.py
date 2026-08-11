@@ -8,7 +8,7 @@ import os
 import sys
 from typing import Optional
 
-from . import backtest, commits, events as E, ingest, predictions as P, rehearse, server, synthetic
+from . import backtest, commits, events as E, ingest, predictions as P, preferences, rehearse, server, synthetic
 from .predictors import REGISTRY
 from .store import TRUNK, EventStore, StoreError
 from .world import project
@@ -103,6 +103,11 @@ def main(argv: Optional[list] = None) -> int:
 
     s = sub.add_parser("commit", help="promote a branch's agent actions onto the trunk")
     s.add_argument("branch")
+
+    s = sub.add_parser("decline", help="record leaving the week alone, on purpose")
+    s.add_argument("branch")
+
+    sub.add_parser("weights", help="the scoring weights, and where they came from")
 
     s = sub.add_parser("undo", help="withdraw a commit inside its window")
     s.add_argument("commit_id")
@@ -252,6 +257,13 @@ def _dispatch(args, store: EventStore) -> int:
 
     elif args.cmd == "commit":
         _out(commits.commit(store, args.branch))
+
+    elif args.cmd == "decline":
+        _out(preferences.decline(store, args.branch))
+
+    elif args.cmd == "weights":
+        weights, provenance = preferences.effective_weights(store)
+        _out({"weights": weights, "from": provenance})
 
     elif args.cmd == "undo":
         _out(commits.undo(store, args.commit_id))

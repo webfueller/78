@@ -17,7 +17,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Optional
 from urllib.parse import parse_qs, urlparse
 
-from . import commits, paste, predictions as P, rehearse
+from . import commits, paste, predictions as P, preferences, rehearse
 from .store import TRUNK, EventStore, StoreError
 from .world import project
 
@@ -207,6 +207,13 @@ class Handler(BaseHTTPRequestHandler):
 
             elif path == "/api/commit":
                 self._json(commits.commit(store, (body or {})["branch"]))
+
+            elif path == "/api/decline":
+                self._json(preferences.decline(store, (body or {})["branch"]))
+
+            elif path == "/api/weights":
+                weights, provenance = preferences.effective_weights(store)
+                self._json({"weights": weights, "from": provenance})
 
             elif path == "/api/undo":
                 self._json(commits.undo(store, (body or {})["commit_id"]))
