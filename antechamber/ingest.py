@@ -21,6 +21,7 @@ import re
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from . import events as E
+from . import stakes as S
 from .store import TRUNK, EventStore
 
 HOUR = 3600
@@ -74,24 +75,17 @@ def _body(msg, limit: int = 400) -> str:
 
 # ---------------------------------------------------------------- receipts
 
-MONEY = re.compile(
-    r"(?:(?P<sym>[€$£])\s?(?P<a1>\d[\d.,]*)|(?P<code>EUR|USD|GBP)\s?(?P<a2>\d[\d.,]*))",
-    re.I,
-)
+# One money pattern for the whole program. This one had the same swallow-the-
+# full-stop bug and the same silent failure mode; sharing it means it can only
+# ever be wrong in one place.
+MONEY = S.AMOUNT
 CHARGE_WORDS = re.compile(
     r"\b(receipt|invoice|payment|charged|billed|subscription|renewal|your plan)\b", re.I
 )
 
 
 def _cents(text: str) -> Optional[int]:
-    m = MONEY.search(text)
-    if not m:
-        return None
-    raw = (m.group("a1") or m.group("a2") or "").replace(",", "")
-    try:
-        return int(round(float(raw) * 100))
-    except ValueError:
-        return None
+    return S._amount_cents(text) or None
 
 
 def _message_record(msg, mine: set) -> Optional[dict]:

@@ -38,6 +38,20 @@ SUBJECTS = [
     "handover notes", "budget line 4", "access request", "site visit",
 ]
 
+# Most threads carry nothing; a few carry the month. A world where every thread
+# is worth the same is a world where a product that knows what things are worth
+# cannot possibly help, so a generator without this cannot test one.
+STAKE_CLASSES = (
+    (0.70, 0, 0),            # nothing named
+    (0.20, 5_000, 50_000),   # EUR 50 - 500
+    (0.08, 50_000, 500_000),
+    (0.02, 500_000, 5_000_000),
+)
+DEADLINE_PHRASES = (
+    "Needs a decision by {day}.", "Please confirm by {day}.",
+    "This is due by the end of the week.", "Deadline is {day}.",
+)
+
 MERCHANTS = [
     ("sub_relay", "Relay Storage", 1200),
     ("sub_atlas", "Atlas Analytics", 4900),
@@ -111,10 +125,22 @@ def seed_world(store: EventStore, days: int = 120, seed: int = 7, start_ts: int 
             tid = f"th_{thread_n:04d}"
             subject = rng.choice(SUBJECTS)
             now = max(now, day_start + rng.randint(8 * HOUR, 17 * HOUR))
+            body = f"Following up on {subject}."
+            roll, cents = rng.random(), 0
+            floor = 0.0
+            for share, lo, hi in STAKE_CLASSES:
+                floor += share
+                if roll <= floor:
+                    cents = rng.randint(lo, hi) if hi else 0
+                    break
+            if cents:
+                body += f" The amount is EUR {cents / 100:,.2f}."
+            if rng.random() < 0.25:
+                body += " " + rng.choice(DEADLINE_PHRASES).format(
+                    day=rng.choice(["Friday", "Monday", "Thursday", "Wednesday"]))
             store.append(
                 branch=TRUNK, kind=E.MESSAGE_RECEIVED, entity=tid, actor=E.ACTOR_WORLD, ts=now,
-                payload={"sender": cid, "counterparty": cid, "subject": subject,
-                         "body": f"Following up on {subject}."},
+                payload={"sender": cid, "counterparty": cid, "subject": subject, "body": body},
             )
             # We answer most, but not all, of what arrives.
             if rng.random() < 0.75:

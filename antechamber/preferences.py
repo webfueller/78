@@ -45,6 +45,13 @@ PRIOR: Dict[str, float] = {
     "per_action": -0.25,
     "burn_saved_per_1000c": 0.5,
     "late_surprise": -1.0,
+    # A reply is not a reply. These two say which replies were worth having:
+    # money the thread names, and whether it has a clock on it. Both are guesses
+    # like the four above and both are fitted from what you commit. Setting
+    # value_at_risk_k to 1.0 says a thousand euros in play is worth about one
+    # answered nudge, which is a starting point and nothing more.
+    "value_at_risk_k": 1.0,
+    "deadline_pressure": 0.75,
 }
 KEYS: Tuple[str, ...] = tuple(sorted(PRIOR))
 
@@ -62,6 +69,8 @@ def features(expected: dict, actions: int) -> Dict[str, float]:
         "per_action": float(actions),
         "burn_saved_per_1000c": float(expected["burn_saved_cents"]) / 1000.0,
         "late_surprise": float(expected["late_surprises"]),
+        "value_at_risk_k": float(expected.get("value_at_risk_k", 0.0)),
+        "deadline_pressure": float(expected.get("deadline_pressure", 0.0)),
     }
 
 

@@ -17,7 +17,10 @@ DAY = 24 * 3600
 
 
 def option(name, **f):
-    base = {"reply": 0.0, "per_action": 0.0, "burn_saved_per_1000c": 0.0, "late_surprise": 0.0}
+    # Built from PF.KEYS rather than a hardcoded list, so a feature added to the
+    # model cannot silently sit at its prior through every test that claims to
+    # exercise the fit.
+    base = {k: 0.0 for k in PF.KEYS}
     base.update(f)
     return {"branch": name, "plan": name, "features": base}
 
@@ -74,9 +77,10 @@ class TestTheGate(unittest.TestCase):
         rng = random.Random(7)
         data = []
         for _ in range(24):
-            opts = [option(f"o{i}", reply=rng.random() * 3, per_action=rng.random() * 8,
-                           burn_saved_per_1000c=rng.random() * 9,
-                           late_surprise=rng.random() * 2) for i in range(4)]
+            # Random across everything the model looks at: a person with no
+            # preference has none about any of it.
+            opts = [option(f"o{i}", **{k: rng.random() * 3 for k in PF.KEYS})
+                    for i in range(4)]
             data.append(choice(opts, rng.randrange(4)))
 
         verdict = PF.evaluate(data)

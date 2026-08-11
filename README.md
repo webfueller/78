@@ -21,7 +21,10 @@ Strategy memo, including the four concepts that were considered and rejected:
 been run against the thing itself:
 [001](docs/experiment-001.md) settled that it works on imported mail rather than
 only on the demo; [002](docs/experiment-002.md) settled what it is worth in
-week two, and the answer is **5–16% of week one**.
+week two, and the answer is **5–16% of week one**;
+[003](docs/experiment-003.md) tried to fix that by teaching it what a thread is
+worth, and found the fix **re-orders value without creating any** — because the
+thing being consumed is a finite backlog, not a renewable one.
 
 ---
 

@@ -27,6 +27,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 from . import events as E
 from . import predictions as P
 from . import preferences as P_PREF
+from . import stakes as S
 from .predictors import REGISTRY, PerContactAge, Predictor
 from .store import TRUNK, EventStore
 from .world import Thread, World, project
@@ -120,10 +121,10 @@ def _name(w: World, cid: str) -> str:
     return w.contacts.get(cid, {}).get("name", cid)
 
 
-def _stale_threads(w: World, now: int, min_age: int) -> List[Thread]:
+def _stale_threads(w: World, now: int, min_age: int, take: int = MAX_ACTIONS) -> List[Thread]:
     open_ = [t for t in w.open_threads() if now - t.last_ts >= min_age]
     open_.sort(key=lambda t: t.last_ts)  # the ones rotting longest, first
-    return open_[:MAX_ACTIONS]
+    return open_[:take]
 
 
 def _idle_subscriptions(w: World, now: int, quiet_for: int = 90 * DAY) -> List[str]:
@@ -166,7 +167,11 @@ def build_plans(w: World, now: int, mandate: Sequence[str], horizon: int,
     # no action -- but a plan that cannot beat silence should not be run.
     plans.append(Plan("hold", "Hold", "Change nothing. The baseline every other plan has to beat.", [], []))
 
-    stale = _stale_threads(w, now, min_age=min_stale)
+    # A wider pool than any one plan will use: chasing the oldest threads and
+    # chasing the ones that matter are different shortlists, and the second is
+    # only possible if the candidates were not already truncated by age.
+    pool = _stale_threads(w, now, min_age=min_stale, take=MAX_ACTIONS * 3)
+    stale = pool[:MAX_ACTIONS]
     if "chase" in mandate and stale:
         actions, uncertain = [], []
         for i, t in enumerate(stale):
@@ -232,6 +237,35 @@ def build_plans(w: World, now: int, mandate: Sequence[str], horizon: int,
                 f"{'subscription' if len(idle) == 1 else 'subscriptions'} "
                 "nothing has referred to in 90 days.",
                 actions, list(base.uncertain),
+            ))
+
+        # And the shortlist a person would actually write themselves: the threads
+        # carrying money or a clock, whether or not the other party is a reliable
+        # correspondent. One answer on a deposit is not one answer about padel.
+        def worth(t: Thread) -> float:
+            st = S.read(t)
+            return reply_odds(t, now + HOUR) * (st.money_k + st.pressure(now, horizon))
+
+        valuable = [t for t in sorted(pool, key=worth, reverse=True) if worth(t) > 0][:MAX_ACTIONS]
+        if valuable:
+            actions, uncertain = [], []
+            for i, t in enumerate(valuable):
+                at = now + (i + 1) * HOUR
+                actions.append(Action(
+                    kind=E.MESSAGE_SENT, entity=t.id,
+                    payload={"sender": "me", "counterparty": t.counterparty,
+                             "subject": t.subject,
+                             "body": f"Following up on {t.subject} — do you have a view this week?"},
+                    describe=f"Nudge {_name(w, t.counterparty)} on “{t.subject}”",
+                    offset=at - now,
+                ))
+                uncertain.append(_reply_uncertainty(w, t, at, horizon, reply_odds(t, at)))
+            carried = sum(S.read(t).money_cents for t in valuable) / 100.0
+            plans.append(Plan(
+                "chase_valuable", "Chase what is at stake",
+                f"Nudge the {len(valuable)} quiet threads carrying money or a deadline "
+                f"— about {carried:,.0f} in play — regardless of who answers reliably.",
+                actions, uncertain,
             ))
 
     # Meetings move whether or not you do anything, so the risk belongs to every
@@ -446,7 +480,7 @@ def rehearse(
                            "contact": u.contact} for u in plan.uncertain],
             "branches": branches,
             "coverage": round(sum(b["p"] for b in branches), 4),
-            "expected": _expected(plan, w),
+            "expected": _expected(plan, w, now, horizon),
         })
 
     supported = _mandate_support(w, mandate)
@@ -494,7 +528,7 @@ def _metrics(store: EventStore, bname: str, before: World, plan: Plan, outcomes:
     }
 
 
-def _expected(plan: Plan, before: World) -> dict:
+def _expected(plan: Plan, before: World, now: int, horizon: int) -> dict:
     """Expectations from marginals, which is exact.
 
     Averaging over the five displayed futures would not be: those are the modal
@@ -504,6 +538,18 @@ def _expected(plan: Plan, before: World) -> dict:
     problem and needs no coverage caveat.
     """
     replies = sum(u.p for u in plan.uncertain if u.resolver == "reply_within")
+
+    # Weight each expected reply by what its thread is carrying. A plan that
+    # collects one answer on a deposit is not the same plan as one that collects
+    # one answer about padel, and until now the score could not tell them apart.
+    seen: Dict[str, S.Stakes] = {}
+    value = pressure = 0.0
+    for u in plan.uncertain:
+        if u.resolver != "reply_within" or u.entity not in before.threads:
+            continue
+        st = seen.get(u.entity) or seen.setdefault(u.entity, S.read(before.threads[u.entity]))
+        value += u.p * st.money_k
+        pressure += u.p * st.pressure(now, horizon)
     burn = sum(
         a.payload.get("amount_cents", 0) for a in plan.actions
         if a.kind == E.SUBSCRIPTION_CANCELLED
@@ -521,6 +567,8 @@ def _expected(plan: Plan, before: World) -> dict:
         "late_surprises": round(sum(u.p for u in plan.uncertain if u.late), 3),
         "threads_open": round(len(before.open_threads()) + opened - replies, 3),
         "burn_saved_cents": burn,
+        "value_at_risk_k": round(value, 4),
+        "deadline_pressure": round(pressure, 3),
     }
 
 
