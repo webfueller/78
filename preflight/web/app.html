@@ -326,6 +326,7 @@ code{font-family:var(--util);font-size:12px;background:var(--sunken);border:1px 
             <th scope="col">Actions<span class="dir">fewer is quieter</span></th>
             <th scope="col">Replies expected<span class="dir">more is better</span></th>
             <th scope="col">Late surprises<span class="dir">fewer is better</span></th>
+            <th scope="col">€ at risk<span class="dir">more is worth chasing</span></th>
             <th scope="col">Saved / month<span class="dir">more is better</span></th>
             <th scope="col">Score<span class="dir">the weighted sum</span></th>
           </tr></thead>
@@ -510,6 +511,7 @@ function drawPlans(map) {
   const maxRep = max(p => p.expected.replies);
   const maxLate = max(p => p.expected.late_surprises);
   const maxSave = max(p => p.expected.burn_saved_cents);
+  const maxRisk = max(p => p.expected.value_at_risk_k || 0);
   const span = max(p => Math.abs(p.utility));
 
   $("#plans").innerHTML = map.plans.map((p,i) => {
@@ -521,6 +523,8 @@ function drawPlans(map) {
       ${cell("Actions", p.actions.length, p.actions.length/maxAct, "")}
       ${cell("Replies expected", e.replies.toFixed(2), e.replies/maxRep, "good")}
       ${cell("Late surprises", e.late_surprises.toFixed(2), e.late_surprises/maxLate, "bad")}
+      ${cell("€ at risk", e.value_at_risk_k ? money(e.value_at_risk_k * 100000) : "none",
+             maxRisk ? e.value_at_risk_k / maxRisk : 0, "good")}
       ${cell("Saved / month", e.burn_saved_cents ? money(e.burn_saved_cents) : "none",
              e.burn_saved_cents/maxSave, "good")}
       ${scoreCell(p.utility, span)}
@@ -537,17 +541,34 @@ function drawPlans(map) {
 
   $("#why").innerHTML = why(map);
 
-  const w = map.weights;
-  // Written out with real signs. "-0.25×actions" run together with the term
-  // before it reads as a hyphen, which is not what a weight of minus a quarter
-  // deserves.
-  const term = (v, what) => `${v < 0 ? "−" : "+"} ${Math.abs(v)} × ${what}`;
+  // Built from the weights the server actually scored with, never from a list
+  // written out by hand here. A term added to the model and not to this string
+  // would leave the page stating a formula that is not the formula -- which is
+  // exactly the kind of quiet lie the rest of this interface exists to avoid.
+  const LABEL = {
+    reply: "replies", per_action: "actions", burn_saved_per_1000c: "(saved ÷ €10)",
+    late_surprise: "late surprises", value_at_risk_k: "(€ at risk ÷ 1000)",
+    deadline_pressure: "deadlines landing",
+  };
+  const w = map.weights, from = map.weights_from || {};
+  // Real signs: "-0.25×actions" run against the term before it reads as a
+  // hyphen, which is not what a weight of minus a quarter deserves.
+  const terms = Object.keys(w).sort()
+    .map((k, i) => `${i === 0 ? "" : (w[k] < 0 ? "− " : "+ ")}` +
+                   `${i === 0 ? w[k] : Math.abs(w[k])} × ${LABEL[k] || k}`)
+    .join(" ");
+  const learned = from.source === "learned";
   $("#weights").innerHTML =
-    `<code>score = ${w.reply} × replies ${term(w.per_action, "actions")} ` +
-    `${term(w.burn_saved_per_1000c, "(saved ÷ €10)")} ${term(w.late_surprise, "late surprises")}</code><br>` +
-    `Those four weights are placeholders. Nobody has measured what an unanswered thread is ` +
-    `worth to you against an email you would rather not send, so the ranking is only as good ` +
-    `as the guess — which is why the guess is printed rather than hidden behind the word “score”.`;
+    `<code>score = ${terms}</code><br>` +
+    (learned
+      ? `These ${Object.keys(w).length} weights were fitted to the ${from.choices} decisions ` +
+        `you have made here, and used only because they beat the hand-picked ones on choices ` +
+        `they had not seen. ${esc(from.why || "")}`
+      : `These ${Object.keys(w).length} weights are placeholders — nobody has measured what an ` +
+        `unanswered thread is worth to you against an email you would rather not send. They get ` +
+        `replaced by weights fitted to your own decisions after ${from.needed || 8} commits, and ` +
+        `until then the ranking is only as good as the guess, which is why the guess is printed ` +
+        `rather than hidden behind the word “score”.`);
 }
 
 /* Why the recommended plan is recommended, in the plain terms of what actually
