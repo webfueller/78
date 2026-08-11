@@ -1,0 +1,372 @@
+<title>Antechamber — getting started, and what makes it different</title>
+
+<style>
+  :root {
+    color-scheme: light;
+    --ground:   #E7E9E3;
+    --panel:    #F2F3EE;
+    --sunken:   #DDE0D9;
+    --rule:     #C5CAC2;
+    --rule-soft:#D6DAD2;
+    --ink:      #14232D;
+    --ink-mid:  #3C4E58;
+    --ink-dim:  #64747B;
+    --real:     #8E5B0E;
+    --sim:      #1F6873;
+    --dead:     #97402F;
+
+    --display: "Iowan Old Style", Charter, "Bitstream Charter", Georgia, "Times New Roman", serif;
+    --util: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    --measure: 36rem;
+    --frame: 62rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground:   #0C1720;
+      --panel:    #12212C;
+      --sunken:   #091219;
+      --rule:     #21384A;
+      --rule-soft:#1A2C3A;
+      --ink:      #D9E4E9;
+      --ink-mid:  #A8BCC6;
+      --ink-dim:  #7B95A3;
+      --real:     #E8A33D;
+      --sim:      #61B7C5;
+      --dead:     #DC7B63;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground:   #0C1720;
+    --panel:    #12212C;
+    --sunken:   #091219;
+    --rule:     #21384A;
+    --rule-soft:#1A2C3A;
+    --ink:      #D9E4E9;
+    --ink-mid:  #A8BCC6;
+    --ink-dim:  #7B95A3;
+    --real:     #E8A33D;
+    --sim:      #61B7C5;
+    --dead:     #DC7B63;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--display);
+    font-size: 1.0625rem;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .frame { max-width: var(--frame); margin: 0 auto; padding: 0 1.5rem 6rem; }
+  .prose { max-width: var(--measure); }
+
+  p { margin: 0 0 1.05em; }
+  strong { font-weight: 600; }
+  a { color: var(--sim); }
+
+  .kicker {
+    font-family: var(--util);
+    font-size: 0.6875rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    margin: 0;
+  }
+
+  header.mast {
+    border-bottom: 1px solid var(--rule);
+    padding: 4.5rem 0 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+  }
+
+  h1 {
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: clamp(2.1rem, 5.4vw, 3.2rem);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+    margin: 0;
+    max-width: 17ch;
+  }
+  h1 span { color: var(--real); }
+
+  .standfirst {
+    font-size: 1.15rem;
+    line-height: 1.55;
+    color: var(--ink-mid);
+    max-width: 44ch;
+    margin: 0;
+  }
+
+  section { padding-top: 3.25rem; }
+
+  h2 {
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: clamp(1.5rem, 3vw, 1.9rem);
+    line-height: 1.15;
+    letter-spacing: -0.015em;
+    margin: 0 0 1.25rem;
+    text-wrap: balance;
+    border-top: 1px solid var(--rule);
+    padding-top: 1.1rem;
+  }
+
+  /* The steps are a real sequence -- you cannot import before you install --
+     so they are numbered. Nothing else on this page is. */
+  ol.steps { margin: 0; padding: 0; list-style: none; counter-reset: s; display: grid; gap: 2.25rem; }
+  ol.steps > li { counter-increment: s; display: grid; grid-template-columns: 2.5rem 1fr; gap: 0 1rem; }
+  ol.steps > li::before {
+    content: counter(s);
+    font-family: var(--util);
+    font-size: 0.8125rem;
+    color: var(--real);
+    padding-top: 0.28rem;
+    font-variant-numeric: tabular-nums;
+  }
+  ol.steps h3 {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 1.1875rem;
+    margin: 0 0 0.5rem;
+    letter-spacing: -0.005em;
+  }
+  ol.steps > li > div { min-width: 0; max-width: var(--measure); }
+
+  pre {
+    background: var(--sunken);
+    border: 1px solid var(--rule-soft);
+    padding: 0.85rem 1rem;
+    overflow-x: auto;
+    margin: 0 0 1.05em;
+    font-family: var(--util);
+    font-size: 0.8125rem;
+    line-height: 1.6;
+    color: var(--ink-mid);
+  }
+  code { font-family: var(--util); font-size: 0.875em; color: var(--ink-mid); }
+  kbd {
+    font-family: var(--util); font-size: 0.8125em;
+    border: 1px solid var(--rule); padding: 0.05rem 0.35rem;
+    color: var(--real);
+  }
+
+  .note {
+    border-left: 2px solid var(--sim);
+    padding: 0.1rem 0 0.1rem 1rem;
+    margin: 0 0 1.05em;
+    color: var(--ink-mid);
+    font-size: 0.9375rem;
+  }
+
+  .usps { display: grid; gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+  .usp { background: var(--panel); padding: 1.15rem 1.25rem 1.3rem; display: flex; flex-direction: column; gap: 0.5rem; }
+  .usp h3 { margin: 0; font-family: var(--display); font-weight: 600; font-size: 1.0625rem; }
+  .usp p { margin: 0; font-size: 0.9375rem; line-height: 1.55; color: var(--ink-mid); }
+  .usp .proof {
+    font-family: var(--util); font-size: 0.6875rem; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--real); margin: 0;
+  }
+  @media (min-width: 46rem) { .usps { grid-template-columns: 1fr 1fr; } }
+
+  .warn { border-left: 2px solid var(--dead); padding: 0.1rem 0 0.1rem 1.1rem; max-width: var(--measure); }
+  .warn .kicker { color: var(--dead); margin-bottom: 0.4rem; }
+  .warn p { font-size: 0.9375rem; color: var(--ink-mid); }
+
+  footer {
+    border-top: 1px solid var(--rule);
+    margin-top: 4rem;
+    padding-top: 1.1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 2rem;
+  }
+</style>
+
+<div class="frame">
+
+  <header class="mast">
+    <p class="kicker">Antechamber</p>
+    <h1>Rehearse the week <span>before</span> you live it.</h1>
+    <p class="standfirst">Five minutes to set up. No account, no password handed
+      over, and nothing leaves your computer — because there is nowhere for it to go.</p>
+  </header>
+
+  <section>
+    <h2>Setting it up</h2>
+
+    <ol class="steps">
+      <li>
+        <div>
+          <h3>Install it</h3>
+          <p>You need Python 3.11 or newer. Nothing else — no accounts, no API
+            keys, no services to sign up for.</p>
+<pre>git clone https://github.com/webfueller/78 antechamber
+cd antechamber
+pip install -e .</pre>
+        </div>
+      </li>
+
+      <li>
+        <div>
+          <h3>See what it does, with made-up data</h3>
+<pre>antechamber demo</pre>
+          <p>Open <code>http://127.0.0.1:8787</code>. You get a fictional person's
+            inbox and calendar, already full. Press <kbd>Rehearse the week</kbd>.</p>
+          <p>Five plans appear side by side, with a map of how each one probably
+            goes and a recommendation. Click any ending on the map to read that
+            week hour by hour. Commit it and you get a receipt; undo puts
+            everything back.</p>
+          <p class="note">Nothing here is yours and nothing is kept. Delete the
+            file it made when you are bored of it.</p>
+        </div>
+      </li>
+
+      <li>
+        <div>
+          <h3>Try it on one real conversation</h3>
+          <p>Go to <code>http://127.0.0.1:8787/paste</code>. Paste an email thread
+            you are actually dreading — the kind with several
+            <em>"On Monday, Ana wrote:"</em> lines still in it — put your own
+            address in the box, and press <kbd>Rehearse it</kbd>.</p>
+          <p>No account. Nothing saved: the copy it builds lives in memory for one
+            second and is gone before the page finishes loading.</p>
+          <p>With a single thread it does not know much about the other person
+            yet, and it tells you that plainly instead of pretending.</p>
+        </div>
+      </li>
+
+      <li>
+        <div>
+          <h3>Point it at your own mail</h3>
+          <p>Two exports, both things you already have a right to.</p>
+          <p><strong>Your mail.</strong> Google Takeout → select Mail only →
+            download. You get a file ending <code>.mbox</code>. Other providers
+            have the same thing under "export".</p>
+          <p><strong>Your calendar.</strong> Google Calendar → Settings → Import
+            &amp; export → Export. You get a <code>.ics</code> file.</p>
+<pre>antechamber --db mine.db import \
+    --mbox ~/Downloads/All\ mail.mbox \
+    --ics  ~/Downloads/calendar.ics \
+    --me   you@example.com
+
+antechamber --db mine.db serve</pre>
+          <p class="note">Export your calendar again each week and keep the old
+            files. One export shows where your meetings are; two show that one
+            <em>moved</em>, and that is the only way it can learn who reschedules
+            on you. Pass them all: <code>--ics week1.ics --ics week2.ics</code></p>
+        </div>
+      </li>
+
+      <li>
+        <div>
+          <h3>The weekly habit</h3>
+          <p>Start it, choose what it should think about — chase what has gone
+            quiet, cut what you do not use, defend the calendar — and press
+            rehearse. Read the plans, take one or take none. <em>Hold</em> is a
+            real answer and it is often the right one. Then commit, read the
+            receipt, and keep your 24 hours to change your mind.</p>
+          <p>Everything lives in the one <code>.db</code> file you named. Delete
+            it and the product knows nothing about you. There is no cloud copy,
+            because there is no cloud.</p>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>What makes it different</h2>
+    <div class="prose">
+      <p>Every claim below is one that something in the repository checks, and
+        each is followed by what checks it.</p>
+    </div>
+
+    <div class="usps">
+      <div class="usp">
+        <h3>Nothing happens until you say so</h3>
+        <p>You see the week play out on a copy first. Only the version you pick
+          becomes real, it comes with a receipt, and you have a day to take it
+          back. Most tools ask you to trust them; this one asks you to look.</p>
+        <p class="proof">The receipt proves the committed week is the rehearsed one, hash for hash</p>
+      </div>
+
+      <div class="usp">
+        <h3>It never puts words in anyone's mouth</h3>
+        <p>When it shows you that Ana probably replies, it is showing a
+          probability and a likely time — never invented sentences with her name
+          on them. Simulated people cannot escape the copy they live in.</p>
+        <p class="proof">Enforced by an allowlist in the store, not by a convention</p>
+      </div>
+
+      <div class="usp">
+        <h3>It keeps score of its own guesses</h3>
+        <p>Every rehearsal writes down what it expects, and later reality settles
+          it. You can ask how often it has been right. Almost nothing else that
+          predicts anything will show you that.</p>
+        <p class="proof">Beats its own baseline by 24–42% across five test worlds</p>
+      </div>
+
+      <div class="usp">
+        <h3>Your mail stays on your machine</h3>
+        <p>No OAuth, no password, no server. It reads files you exported
+          yourself, and it listens only to your own computer. There is no
+          account to delete because there was never one to make.</p>
+        <p class="proof">Refuses any request that did not come from your own browser</p>
+      </div>
+
+      <div class="usp">
+        <h3>It tells you when it does not know</h3>
+        <p>Thin evidence is labelled as thin. A guessed number says it is a
+          guess. When it cannot see enough of your calendar to judge, it says so
+          rather than printing a confident zero.</p>
+        <p class="proof">The scoring weights and their origin ship in every result</p>
+      </div>
+
+      <div class="usp">
+        <h3>The picture is safe to post</h3>
+        <p>The map you can save and share carries plan names, counts and
+          probabilities — no contact, no subject line, no sentence anyone wrote.
+          You can show someone your week without showing them your inbox.</p>
+        <p class="proof">A test reads the drawing code and fails if it ever touches a name</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Two things you should know before you start</h2>
+
+    <div class="warn" style="margin-bottom:1.75rem">
+      <p class="kicker">It does not send email yet</p>
+      <p>Committing writes down what you decided, and that is what makes the
+        receipt and the undo real. The mail connection itself is not built. When
+        it is, the undo has to change: you can take a row out of a file, and you
+        cannot take back a message somebody has already read.</p>
+    </div>
+
+    <div class="warn">
+      <p class="kicker">Most of the value arrives in the first fortnight</p>
+      <p>It finds the subscriptions you forgot and clears the conversations that
+        went quiet — and that is a backlog, not a tap. After that it is worth
+        roughly one extra answered message a week. That is measured rather than
+        assumed, and you should know it before you build a habit around it.</p>
+    </div>
+  </section>
+
+  <footer>
+    <p class="kicker">Antechamber</p>
+    <p class="kicker">Runs on your machine</p>
+    <p class="kicker">Delete one file and it forgets you</p>
+  </footer>
+
+</div>

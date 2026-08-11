@@ -26,6 +26,10 @@ week two, and the answer is **5–16% of week one**;
 worth, and found the fix **re-orders value without creating any** — because the
 thing being consumed is a finite backlog, not a renewable one.
 
+**New here?** [`docs/getting-started.md`](docs/getting-started.md) is the
+five-minute version in plain English, with no jargon and no `.db` files in the
+first paragraph.
+
 ---
 
 ## What is here
