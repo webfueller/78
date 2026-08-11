@@ -17,7 +17,11 @@ per-contact model measured against your own history and scored by the backtest;
 simulated counterparties record a *response class*, never a named person's words.
 
 Strategy memo, including the four concepts that were considered and rejected:
-[`docs/field-note-001.md`](docs/field-note-001.md).
+[`docs/field-note-001.md`](docs/field-note-001.md). Two experiments have since
+been run against the thing itself:
+[001](docs/experiment-001.md) settled that it works on imported mail rather than
+only on the demo; [002](docs/experiment-002.md) settled what it is worth in
+week two, and the answer is **5–16% of week one**.
 
 ---
 
