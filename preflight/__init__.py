@@ -1,4 +1,4 @@
-"""Antechamber -- the twin.
+"""Preflight -- the twin.
 
 Weeks 1-2: an append-only, hash-chained log of a life; forks that rewind it;
 deterministic replay; commits that promote only what the agent authored, with a

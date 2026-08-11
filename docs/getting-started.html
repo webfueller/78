@@ -1,4 +1,4 @@
-<title>Antechamber — getting started, and what makes it different</title>
+<title>Preflight — getting started, and what makes it different</title>
 
 <style>
   :root {
@@ -197,7 +197,7 @@
 <div class="frame">
 
   <header class="mast">
-    <p class="kicker">Antechamber</p>
+    <p class="kicker">Preflight</p>
     <h1>Rehearse the week <span>before</span> you live it.</h1>
     <p class="standfirst">Five minutes to set up. No account, no password handed
       over, and nothing leaves your computer — because there is nowhere for it to go.</p>
@@ -212,8 +212,8 @@
           <h3>Install it</h3>
           <p>You need Python 3.11 or newer. Nothing else — no accounts, no API
             keys, no services to sign up for.</p>
-<pre>git clone https://github.com/webfueller/78 antechamber
-cd antechamber
+<pre>git clone https://github.com/webfueller/78 preflight
+cd preflight
 pip install -e .</pre>
         </div>
       </li>
@@ -221,7 +221,7 @@ pip install -e .</pre>
       <li>
         <div>
           <h3>See what it does, with made-up data</h3>
-<pre>antechamber demo</pre>
+<pre>preflight demo</pre>
           <p>Open <code>http://127.0.0.1:8787</code>. You get a fictional person's
             inbox and calendar, already full. Press <kbd>Rehearse the week</kbd>.</p>
           <p>Five plans appear side by side, with a map of how each one probably
@@ -256,12 +256,12 @@ pip install -e .</pre>
             have the same thing under "export".</p>
           <p><strong>Your calendar.</strong> Google Calendar → Settings → Import
             &amp; export → Export. You get a <code>.ics</code> file.</p>
-<pre>antechamber --db mine.db import \
+<pre>preflight --db mine.db import \
     --mbox ~/Downloads/All\ mail.mbox \
     --ics  ~/Downloads/calendar.ics \
     --me   you@example.com
 
-antechamber --db mine.db serve</pre>
+preflight --db mine.db serve</pre>
           <p class="note">Export your calendar again each week and keep the old
             files. One export shows where your meetings are; two show that one
             <em>moved</em>, and that is the only way it can learn who reschedules
@@ -364,7 +364,7 @@ antechamber --db mine.db serve</pre>
   </section>
 
   <footer>
-    <p class="kicker">Antechamber</p>
+    <p class="kicker">Preflight</p>
     <p class="kicker">Runs on your machine</p>
     <p class="kicker">Delete one file and it forgets you</p>
   </footer>

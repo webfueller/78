@@ -119,8 +119,8 @@ the more dangerous of the two.
 
 ```bash
 python3 - <<'PY'
-from antechamber import synthetic
-from antechamber.store import EventStore
+from preflight import synthetic
+from preflight.store import EventStore
 s = EventStore("source.db"); synthetic.seed_world(s, days=200, seed=5)
 now = s.now()
 synthetic.export_mbox(s, "mail.mbox")
@@ -128,8 +128,8 @@ for k in range(12, -1, -1):
     synthetic.export_ics(s, f"w{k:02d}.ics", now - k*7*86400)
 PY
 
-antechamber --db round.db import --mbox mail.mbox --me me@example.net \
+preflight --db round.db import --mbox mail.mbox --me me@example.net \
     $(for f in w*.ics; do echo --ics $f; done)
-antechamber --db round.db rehearse
-antechamber --db source.db rehearse
+preflight --db round.db rehearse
+preflight --db source.db rehearse
 ```

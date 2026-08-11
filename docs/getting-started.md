@@ -8,15 +8,15 @@ You need Python 3.11 or newer. Nothing else — no accounts, no API keys, no
 services to sign up for.
 
 ```bash
-git clone https://github.com/webfueller/78 antechamber
-cd antechamber
+git clone https://github.com/webfueller/78 preflight
+cd preflight
 pip install -e .
 ```
 
 ## 2. See what it does, with made-up data
 
 ```bash
-antechamber demo
+preflight demo
 ```
 
 Open **http://127.0.0.1:8787**. You get a fictional person's inbox and calendar,
@@ -57,12 +57,12 @@ You'll get a `.ics` file.
 Then:
 
 ```bash
-antechamber --db mine.db import \
+preflight --db mine.db import \
     --mbox ~/Downloads/All\ mail.mbox \
     --ics  ~/Downloads/calendar.ics \
     --me   you@example.com
 
-antechamber --db mine.db serve
+preflight --db mine.db serve
 ```
 
 Your mail never leaves your computer. There is no server to send it to.
@@ -72,12 +72,12 @@ files. A single export shows where meetings are; two show that one *moved*, and
 that's the only way it can learn who reschedules on you.
 
 ```bash
-antechamber --db mine.db import --ics week1.ics --ics week2.ics --ics week3.ics
+preflight --db mine.db import --ics week1.ics --ics week2.ics --ics week3.ics
 ```
 
 ## 5. The weekly habit
 
-1. `antechamber --db mine.db serve`
+1. `preflight --db mine.db serve`
 2. Pick what you want it to think about — chase what's gone quiet, cut what you
    don't use, defend the calendar.
 3. **Rehearse the week.**

@@ -112,8 +112,8 @@ MAX_HORIZON_DAYS = 90
 
 
 class Handler(BaseHTTPRequestHandler):
-    db = "antechamber.db"
-    server_version = "antechamber"
+    db = "preflight.db"
+    server_version = "preflight"
     allowed_hosts: frozenset = frozenset()
 
     def log_message(self, fmt, *args):  # quieter than the default
@@ -324,7 +324,7 @@ def serve(db: str, host: str = "127.0.0.1", port: int = 8787) -> None:
         f"127.0.0.1:{port}", f"localhost:{port}", f"[::1]:{port}",
     })
     httpd = ThreadingHTTPServer((host, port), Handler)
-    print(f"antechamber on http://{host}:{port}  (db: {db})")
+    print(f"preflight on http://{host}:{port}  (db: {db})")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

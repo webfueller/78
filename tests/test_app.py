@@ -9,10 +9,10 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from antechamber import commits, events as E, ingest, predictions as P, rehearse, server, synthetic
-from antechamber.rehearse import Uncertainty
-from antechamber.store import TRUNK, EventStore, StoreError
-from antechamber.world import project
+from preflight import commits, events as E, ingest, predictions as P, rehearse, server, synthetic
+from preflight.rehearse import Uncertainty
+from preflight.store import TRUNK, EventStore, StoreError
+from preflight.world import project
 
 DAY = 24 * 3600
 HERE = os.path.dirname(os.path.abspath(__file__))

@@ -26,10 +26,10 @@ import time
 import unittest
 from http.server import ThreadingHTTPServer
 
-from antechamber import backtest, commits, events as E, ingest, paste, predictions as P
-from antechamber import predictors, rehearse, server, synthetic
-from antechamber.store import TRUNK, EventStore, StoreError
-from antechamber.world import project
+from preflight import backtest, commits, events as E, ingest, paste, predictions as P
+from preflight import predictors, rehearse, server, synthetic
+from preflight.store import TRUNK, EventStore, StoreError
+from preflight.world import project
 
 DAY = 24 * 3600
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -37,7 +37,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 class Tmp(unittest.TestCase):
     def setUp(self):
-        self.dir = tempfile.mkdtemp(prefix="antechamber-qa-")
+        self.dir = tempfile.mkdtemp(prefix="preflight-qa-")
         self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
 
     def db(self, name="t.db"):
@@ -524,7 +524,7 @@ class Paste(Tmp):
     def test_paste_request_creates_no_database_on_disk(self):
         """_dispatch() opens `EventStore(self.db)` before it looks at the route,
         and EventStore.__init__ runs the schema and inserts the trunk row. So a
-        /paste visit on a fresh machine leaves an antechamber.db behind, while
+        /paste visit on a fresh machine leaves an preflight.db behind, while
         the page says 'no account, nothing stored'. No paste content reaches
         it -- but a file that did not exist now does."""
         db = os.path.join(self.dir, "fresh.db")

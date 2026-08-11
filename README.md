@@ -1,4 +1,4 @@
-# Antechamber
+# Preflight
 
 Rehearse the week before you live it.
 
@@ -14,7 +14,7 @@ The same thing in the words the code uses: your accounts are forked into a shado
 copy, an agent runs a week of real work inside the fork, and you commit one
 branch of the resulting map — with a receipt and a hard undo window behind it.
 
-**The app runs.** `pip install -e . && antechamber demo` opens a local page where
+**The app runs.** `pip install -e . && preflight demo` opens a local page where
 you pick a mandate, rehearse the week, read the branch map, save it as an image,
 and commit one future with a receipt and an undo window. It works on your real
 mail via an mbox/ICS import -- no OAuth, no credentials, nothing leaves the
@@ -109,8 +109,8 @@ Standard library only, no dependencies. Tested on Python 3.11.
 ```bash
 python3 -m unittest discover -s tests      # 113 tests, ~150s
 
-export DB=/tmp/antechamber.db
-A="python3 -m antechamber.cli --db $DB"
+export DB=/tmp/preflight.db
+A="python3 -m preflight.cli --db $DB"
 
 $A seed --days 200 --seed 3                # write a synthetic life onto the trunk
 $A status                                  # project it
@@ -120,7 +120,7 @@ $A status                                  # project it
 
 ```bash
 pip install -e .
-antechamber demo                           # seeds a synthetic life, opens :8787
+preflight demo                           # seeds a synthetic life, opens :8787
 ```
 
 Pick a mandate, press **Rehearse the week**. You get plans scored side by side,
@@ -313,7 +313,7 @@ leave the fork they were invented in.
 ## Layout
 
 ```
-antechamber/
+preflight/
   events.py       immutable event, canonical form, hash chain
   store.py        append-only log, branches, forks, integrity check
   world.py        projection: events in, world out, stable state hash
@@ -342,7 +342,7 @@ tests/test_mvp.py    the cold start and the card
 From the memo, unchanged and still the whole bet:
 
 - Counterparty backtest does not beat the baseline by week four → stop. Without
-  that number the twin is theatre. `antechamber score` prints it.
+  that number the twin is theatre. `preflight score` prints it.
 - Fewer than one in four people who see a branch map make a second one within
   seven days → the artifact is not an artifact.
 - Inference cost per rehearsal exceeds monthly price ÷ expected runs with no line

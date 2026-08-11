@@ -1,4 +1,4 @@
-"""antechamber -- drive the twin from a terminal."""
+"""preflight -- drive the twin from a terminal."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from .store import TRUNK, EventStore, StoreError
 from .world import project
 
 DAY = 24 * 3600
-DEFAULT_DB = os.environ.get("ANTECHAMBER_DB", "antechamber.db")
+DEFAULT_DB = os.environ.get("PREFLIGHT_DB", "preflight.db")
 
 
 def _out(obj) -> None:
@@ -31,7 +31,7 @@ def _ts(value: str, store: EventStore) -> int:
 
 
 def main(argv: Optional[list] = None) -> int:
-    ap = argparse.ArgumentParser(prog="antechamber", description=__doc__)
+    ap = argparse.ArgumentParser(prog="preflight", description=__doc__)
     ap.add_argument("--db", default=DEFAULT_DB, help=f"event store path (default: {DEFAULT_DB})")
     sub = ap.add_subparsers(dest="cmd", required=True)
 

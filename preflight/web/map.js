@@ -241,7 +241,7 @@ function branchMapCard(map, meta = {}) {
   const W = inner.width, H = inner.height + TOP + BOTTOM;
   const title = meta.title || "A week, rehearsed";
   const sub = meta.subtitle || "";
-  const foot = meta.footer || "Antechamber — rehearse the week before you live it";
+  const foot = meta.footer || "Preflight — rehearse the week before you live it";
   const legendY = H - 44;
 
   const key = (x, text, colour, shape) => `

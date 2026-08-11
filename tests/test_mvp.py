@@ -11,11 +11,11 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from antechamber import paste, rehearse, server, synthetic
-from antechamber.store import TRUNK, EventStore
-from antechamber.world import project
+from preflight import paste, rehearse, server, synthetic
+from preflight.store import TRUNK, EventStore
+from preflight.world import project
 
-WEB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "antechamber", "web")
+WEB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "preflight", "web")
 
 GMAIL = """Thanks Ana - can you confirm the numbers by Friday?
 
@@ -194,8 +194,8 @@ class TestFirstRun(unittest.TestCase):
     def test_the_package_declares_its_entry_point_and_its_pages(self):
         with open(os.path.join(os.path.dirname(WEB), "..", "pyproject.toml"), encoding="utf-8") as fh:
             cfg = fh.read()
-        self.assertIn("antechamber = \"antechamber.cli:main\"", cfg)
-        self.assertIn('antechamber = ["web/*"]', cfg)
+        self.assertIn("preflight = \"preflight.cli:main\"", cfg)
+        self.assertIn('preflight = ["web/*"]', cfg)
 
 
 if __name__ == "__main__":

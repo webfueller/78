@@ -1,11 +1,11 @@
-# Antechamber — PR/FAQ
+# Preflight — PR/FAQ
 
 *Working-backwards review. Written after using the product, not after reading it.*
 
 Reviewer: PM (bar raiser). Branch `claude/viral-app-concept-2026-88bggv`.
 Everything cited below is a number I produced by running the thing, on the demo
 seed and on a synthetic-but-realistic 403-message / 13-contact / 6-month mailbox
-I generated and imported through the documented `antechamber import` path.
+I generated and imported through the documented `preflight import` path.
 
 ---
 
@@ -27,7 +27,7 @@ recommended: hold
 
 A press release needs a customer who is better off. Here the product's own
 scoring function says the customer is best off closing the laptop. You cannot
-write "Antechamber gave me my week back" over a screen that says *Hold*.
+write "Preflight gave me my week back" over a screen that says *Hold*.
 
 The demo does not say Hold. The demo says +3.94 and recommends a nine-action
 plan. The gap between those two screens is not tuning. It is structural, and
@@ -50,7 +50,7 @@ craft. The problem is that the craft is pointed at a job nobody has.
 Here is the draft the strategy memo implies, with the parts that failed
 verification struck through in commentary.
 
-> **Antechamber lets you live your week twice.**
+> **Preflight lets you live your week twice.**
 > *Rehearse a week of email and calendar work on a forked copy of your own data,
 > see how it probably goes, and commit the future you want.*
 >
@@ -88,7 +88,7 @@ customer is asking *"does it matter if they don't?"*
 *Clearly labelled: this is for a narrower product than the one in the memo. It is
 the one I would actually ship.*
 
-> ### Antechamber ships the missing safety layer for agents that act on your behalf
+> ### Preflight ships the missing safety layer for agents that act on your behalf
 >
 > **A local, auditable preview-and-undo layer for irreversible actions — so you
 > can let an agent touch your accounts without hoping.**
@@ -98,7 +98,7 @@ the one I would actually ship.*
 > what it did is the consequence. There is no preview that is guaranteed to match
 > execution, no receipt, and no way back.
 >
-> Antechamber is the ground the agent stands on. Point it at an mbox and an ICS
+> Preflight is the ground the agent stands on. Point it at an mbox and an ICS
 > export — no OAuth, no credentials, nothing leaves your machine — and it builds
 > an append-only, hash-chained twin of your mail and calendar. An agent proposes
 > actions into a *fork* of that twin. You inspect exactly what would happen, hour
@@ -118,7 +118,7 @@ the one I would actually ship.*
 > this I would put in front of a security team." — *platform engineer, hypothetical
 > but the kind of thing this actually earns*
 >
-> Antechamber runs on loopback, holds no credentials, and re-importing a fresh
+> Preflight runs on loopback, holds no credentials, and re-importing a fresh
 > export is idempotent. It is open, about 3,300 lines, and the privacy claims are
 > small enough to read in an afternoon.
 
@@ -137,7 +137,7 @@ will ship inside their own runtime, because it belongs there.
 
 ## 3. Customer FAQ
 
-**What does Antechamber actually do?**
+**What does Preflight actually do?**
 It builds a private, local copy of your mail and calendar from file exports, lets
 an agent propose a week of work inside a throwaway branch of that copy, shows you
 the branching outcomes with probabilities, and lets you commit one — with a
@@ -227,7 +227,7 @@ counterfactual. The adjacent jobs people *do* hire for are:
 - *"Write the email I'm dreading so I stop avoiding it."* — drafting.
 - *"Don't let me forget this one."* — reminders.
 
-Antechamber does none of the three. It **cannot** do the second, by design: no
+Preflight does none of the three. It **cannot** do the second, by design: no
 language model, so the thing it commits is four copies of the same template.
 
 What they do today instead: star, snooze, flag, Gmail Nudge, a Superhuman
@@ -270,7 +270,7 @@ those are short and one-sided — exactly the region where it returns the prior.
 6. Download a multi-GB archive, in 2GB parts
 7. Unzip (a 20GB mbox wants ~40GB free)
 8. Run the import with the right `--me` flag
-9. `antechamber serve`, open localhost, choose a mandate, rehearse
+9. `preflight serve`, open localhost, choose a mandate, rehearse
 10. Read the result
 
 Ten steps, a multi-day wait, a command line — and per Section 0 the reward at
@@ -464,7 +464,7 @@ is not broken. It is not evidence that real humans have stable, learnable
 per-contact reply rates conditional on elapsed time — which is the actual bet.**
 
 The README says this plainly and deserves credit for it. The memo does not: it
-calls week 4 "the whole bet," and the kill-criteria section implies `antechamber
+calls week 4 "the whole bet," and the kill-criteria section implies `preflight
 score` settles it. It does not.
 
 On my imported mailbox all three predictors returned **identical results with

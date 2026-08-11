@@ -95,7 +95,7 @@ serialized document.
   use, and only if recorded from the start.
 - **How it dies:** the gap between day 1 and day 60. Nothing visible happens in week two.
 
-### 02 · ANTECHAMBER — rehearse the week before you live it *(the pick — see §4)*
+### 02 · PREFLIGHT — rehearse the week before you live it *(the pick — see §5)*
 
 Your accounts, forked into a shadow copy. Your agent runs a week of real work inside the
 fork — including **simulated replies from the people involved**, modeled from your actual
@@ -158,7 +158,7 @@ around the clock and sends you dispatches.
 
 ---
 
-## 5. The pick: ANTECHAMBER
+## 5. The pick: PREFLIGHT
 
 **Why this one.** Every other concept here is downstream of the same 2026 fact: agents can
 act, and nobody dares let them, because you cannot preview a consequence. Solve preview and
@@ -260,6 +260,13 @@ three-week retention curve. Week 4's backtest is the whole bet. Run it early, an
 ---
 
 ## Status
+
+**On the name.** This memo picked the concept while calling it *Antechamber* — the
+room before the room. It shipped as **Preflight**, for three reasons that only became
+obvious once people had to say it out loud: half of them typed *anti*chamber; an
+antechamber is a room where you *wait*, which is the wrong verb for a product about
+acting decisively; and a preflight check is the thing everyone already understands
+you run before the part you cannot take back.
 
 Weeks 1–2 are built and in this repository: the append-only hash-chained log, forks that
 rewind, deterministic replay, commit-with-receipt and a 24h undo that restores the prior
