@@ -44,6 +44,7 @@ WEIGHTS = dict(P_PREF.PRIOR)
 MAX_ACTIONS = 8       # a plan a person can read
 MAX_BRANCHES = 5      # futures shown per plan
 LATE = DAY            # a change inside this window before the event is a surprise
+MOVE_EVIDENCE = 8     # meetings-with-a-move below which move rates mean little
 
 
 @dataclasses.dataclass
@@ -534,7 +535,7 @@ def _mandate_support(w: World, mandate: Sequence[str]) -> List[dict]:
     used to show that as a shorter list of plans rather than as an answer.
     """
     have_subs = any(s.state == "active" for s in w.subscriptions.values())
-    have_moves = any(m.moves for m in w.meetings.values())
+    moved = sum(1 for m in w.meetings.values() if m.moves)
     have_meetings = bool(w.meetings)
 
     reasons = {
@@ -547,9 +548,20 @@ def _mandate_support(w: World, mandate: Sequence[str]) -> List[dict]:
     for name in mandate:
         ok, why = reasons.get(name, (True, ""))
         note = "" if ok else why
-        if name == "defend" and ok and not have_moves:
-            note = ("no meeting in this history has ever moved, so the odds below are "
-                    "the population prior rather than anything measured about these people")
+        # A twin built from occasional calendar exports sees only the moves that
+        # happened between two of them. Under-counting moves does not merely
+        # weaken this mandate -- it drives every plan's late-surprise figure
+        # toward zero, and a confident 0.00 reads as "your calendar is safe"
+        # when it means "nothing here has been watched closely enough to know".
+        if name == "defend" and ok and moved < MOVE_EVIDENCE:
+            note = (
+                f"only {moved} meeting{'' if moved == 1 else 's'} in this history "
+                f"{'is' if moved == 1 else 'are'} recorded as having moved, too thin to "
+                f"measure anyone's "
+                f"habits — the late-surprise figures below are under-evidenced and "
+                f"read lower than the truth. Recovering moves needs calendar exports "
+                f"taken more often than meetings are rescheduled."
+            )
         out.append({"mandate": name, "usable": ok, "note": note})
     return out
 

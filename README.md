@@ -48,27 +48,27 @@ delivery is a deliberate, separate step, and the undo window has to be rethought
 when it happens: you can withdraw a row from a local log, and you cannot
 withdraw a message someone has already read.
 
-**The demo and an imported mailbox are not the same product.** `synthetic.py`
-emits seven kinds of event; an mbox and an ICS export between them produce four.
-The three that are missing — `money.subscription_observed`, `money.charged`,
-`calendar.moved` — are exactly what "cut what I don't use" needs, and what gives
-"defend the calendar" anything to measure. So on real mail, `prune` cannot fire
-at all and `defend` runs on a population prior rather than on evidence.
+**The demo and an imported mailbox were not the same product.** `synthetic.py`
+emits seven kinds of event; an mbox and an ICS export produced four. The missing
+three — `money.subscription_observed`, `money.charged`, `calendar.moved` — were
+the only inputs separating one plan from another, so on real mail the app
+recommended doing nothing.
 
-The rehearsal payload now carries `mandate_support`, and the answer is a
-sentence rather than a silently shorter list of plans:
+Two of the three are closed: subscriptions are now recovered from the receipts
+they send you, and calendar moves from diffing successive exports. Round-tripping
+a known world through mbox and ICS now preserves contacts, threads,
+subscriptions and burn exactly, and the recommendation on imported data beats
+doing nothing by five points — [`docs/experiment-001.md`](docs/experiment-001.md)
+has the design and the numbers.
 
-```
-imported mail:  chase  ok
-                prune  DEAD — this twin has no subscriptions in it
-                defend ok, but no meeting here has ever moved, so the odds are
-                       the population prior rather than anything measured
-```
-
-Closing that gap means parsing charges out of receipt mail and diffing repeated
-calendar exports to recover moves. Until then, the honest framing is that this
-does one thing on your real mail — chasing what has gone quiet — and the other
-two mandates are waiting on ingestion that does not exist yet.
+The third is a scope correction rather than a fix. Recovering meeting moves needs
+calendar exports taken more often than people reschedule — daily recovers all of
+them, weekly half, fortnightly a quarter. That is a background job, not an
+onboarding step, so **defend cannot be bootstrapped from an import** and becomes
+available only after the product has been watching for a while. Worse, the thin
+evidence made every plan report `0.00 late surprises`, which reads as *your
+calendar is safe* and meant *nobody has been watching*. The payload now says
+which one it is.
 
 ## What is deliberately not here
 

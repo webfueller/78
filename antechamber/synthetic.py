@@ -9,6 +9,7 @@ generator gives the tests ground truth that a real mailbox never could.
 from __future__ import annotations
 
 import random
+import time
 from typing import List
 
 from . import events as E
@@ -156,3 +157,88 @@ def seed_world(store: EventStore, days: int = 120, seed: int = 7, start_ts: int 
                 )
 
     return now
+
+
+# --------------------------------------------------------------------- export
+#
+# The point of exporting a generated world is that it makes ingestion testable
+# against an answer key. Import is otherwise judged only by whether it crashes:
+# a round trip says whether the twin you get from a mailbox is the twin the
+# mailbox described, and the answer turned out to be "not quite".
+
+
+MERCHANT_DOMAINS = {
+    "Relay Storage": "relaystorage.com",
+    "Atlas Analytics": "atlasanalytics.com",
+    "Kiln CI": "kilnci.com",
+    "Paper Weekly": "paperweekly.com",
+}
+
+
+def export_mbox(store, path: str, me: str = "me@example.net") -> int:
+    """Everything a mail archive would hold: the conversations, and the receipts."""
+    import email.utils
+
+    from .world import project
+
+    w = project(store.read(TRUNK))
+    rows = []
+
+    for t in w.threads.values():
+        addr = w.contacts.get(t.counterparty, {}).get("address", f"{t.counterparty}@example.net")
+        name = w.contacts.get(t.counterparty, {}).get("name", t.counterparty)
+        for i, m in enumerate(t.messages):
+            out = m["direction"] == "out"
+            rows.append((m["ts"], {
+                "From": f"Me <{me}>" if out else f"{name} <{addr}>",
+                "To": f"{name} <{addr}>" if out else f"Me <{me}>",
+                "Subject": ("Re: " if i else "") + t.subject,
+                "Message-ID": f"<{t.id}.{i}@example.net>",
+                "References": f"<{t.id}.0@example.net>" if i else "",
+            }, m.get("body") or "(no body)"))
+
+    for sub in w.subscriptions.values():
+        domain = MERCHANT_DOMAINS.get(sub.merchant, "billing.example.com")
+        for n, ts in enumerate(sub.charges):
+            rows.append((ts, {
+                "From": f"billing <noreply@{domain}>",
+                "To": f"Me <{me}>",
+                "Subject": f"{sub.merchant} receipt EUR {sub.amount_cents / 100:.2f}",
+                "Message-ID": f"<{sub.id}.{n}@{domain}>",
+                "References": "",
+            }, f"Your monthly receipt. Amount charged: EUR {sub.amount_cents / 100:.2f}"))
+
+    rows.sort(key=lambda r: r[0])
+    with open(path, "w", encoding="utf-8") as fh:
+        for ts, head, body in rows:
+            fh.write(f"From MAILER-DAEMON {time.ctime(ts)}\n")
+            for key, value in head.items():
+                if value:
+                    fh.write(f"{key}: {value}\n")
+            fh.write(f"Date: {email.utils.formatdate(ts)}\n\n{body}\n\n")
+    return len(rows)
+
+
+def export_ics(store, path: str, at_ts: int) -> int:
+    """One snapshot of the calendar, as it stood at `at_ts`."""
+    from .world import project
+
+    w = project(store.read(TRUNK, until_ts=at_ts))
+    stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime(at_ts))
+    meetings = [m for m in w.meetings.values() if m.state == "scheduled"]
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write("BEGIN:VCALENDAR\r\nVERSION:2.0\r\n")
+        fh.write(f"DTSTAMP:{stamp}\r\n")
+        for m in meetings:
+            fh.write("BEGIN:VEVENT\r\n")
+            fh.write(f"UID:{m.id}@example.net\r\n")
+            fh.write(f"DTSTAMP:{stamp}\r\n")
+            fh.write("DTSTART:" + time.strftime("%Y%m%dT%H%M%SZ", time.gmtime(m.start)) + "\r\n")
+            fh.write("DTEND:" + time.strftime("%Y%m%dT%H%M%SZ", time.gmtime(m.end)) + "\r\n")
+            fh.write(f"SUMMARY:{m.title}\r\n")
+            for a in m.attendees:
+                if a != "me":
+                    fh.write(f"ATTENDEE;CN={a}:mailto:{a}@example.net\r\n")
+            fh.write("END:VEVENT\r\n")
+        fh.write("END:VCALENDAR\r\n")
+    return len(meetings)

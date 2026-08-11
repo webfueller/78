@@ -196,8 +196,14 @@ def _dispatch(args, store: EventStore) -> int:
         records = []
         for path in args.mbox:
             records += ingest.read_mbox(path, args.me)
+            # Receipts are the only trace a subscription leaves in a mailbox.
+            records += ingest.read_receipts(path, args.me)
         for path in args.ics:
             records += ingest.read_ics(path)
+        # Two or more calendar exports of the same calendar are the only way to
+        # see that a meeting moved. One snapshot can never show it.
+        if len(args.ics) > 1:
+            records += ingest.calendar_moves(args.ics)
         if not records:
             raise StoreError("nothing to import")
         _out({**ingest.ingest(store, records),

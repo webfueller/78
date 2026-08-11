@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import contextlib
 import email.utils
+import os
 import hashlib
 import mailbox
 import re
@@ -71,8 +72,38 @@ def _body(msg, limit: int = 400) -> str:
     return re.sub(r"\s+", " ", text).strip()[:limit]
 
 
+# ---------------------------------------------------------------- receipts
+
+MONEY = re.compile(
+    r"(?:(?P<sym>[€$£])\s?(?P<a1>\d[\d.,]*)|(?P<code>EUR|USD|GBP)\s?(?P<a2>\d[\d.,]*))",
+    re.I,
+)
+CHARGE_WORDS = re.compile(
+    r"\b(receipt|invoice|payment|charged|billed|subscription|renewal|your plan)\b", re.I
+)
+
+
+def _cents(text: str) -> Optional[int]:
+    m = MONEY.search(text)
+    if not m:
+        return None
+    raw = (m.group("a1") or m.group("a2") or "").replace(",", "")
+    try:
+        return int(round(float(raw) * 100))
+    except ValueError:
+        return None
+
+
 def _message_record(msg, mine: set) -> Optional[dict]:
     """One mail becomes one event, or nothing if it cannot be placed."""
+    if _is_receipt(msg):
+        # A receipt is not a conversation. Letting it become one had a
+        # consequence nobody would predict: "cut what I don't use" looks for
+        # subscriptions nothing has mentioned lately, and a subscription's own
+        # receipts mention it every month. Every merchant looked actively
+        # discussed, so nothing was ever idle and the mandate silently proposed
+        # nothing at all.
+        return None
     ts = _when(msg)
     if ts is None:
         return None  # a message with no date cannot go on a timeline
@@ -105,6 +136,18 @@ def _message_record(msg, mine: set) -> Optional[dict]:
         },
         "_contact": (cp, other_name or other_addr, other_addr),
     }
+
+
+def _is_receipt(msg) -> bool:
+    """Receipt-shaped: says it is a charge, and names an amount.
+
+    Both halves are needed. "invoice 2291" from a colleague is a conversation;
+    "Kiln CI receipt EUR 29.00" from a biller is not.
+    """
+    subject = (msg.get("Subject") or "").strip()
+    if not CHARGE_WORDS.search(subject) and not CHARGE_WORDS.search(_body(msg, 200)):
+        return False
+    return bool(_cents(subject) or _cents(_body(msg, 400)))
 
 
 def read_mbox(path: str, me: Sequence[str]) -> List[dict]:
@@ -190,6 +233,134 @@ def read_ics(path: str) -> List[dict]:
                 "attendees": ["me"] + attendees[:6],
             },
         })
+    return out
+
+
+GENERIC_SENDER = re.compile(r"^(billing|no-?reply|invoices?|receipts?|accounts?|support)$", re.I)
+
+
+def _merchant(name: str, addr: str, subject: str, cents: int) -> Tuple[str, str]:
+    """Who is charging you, keyed so one biller can front several subscriptions.
+
+    Keying on the sending domain alone merges everything a payment processor
+    sends -- Stripe and Paddle bill for hundreds of products from one address, so
+    four subscriptions become one. The price is the discriminator that survives
+    that, since two products from the same biller almost never cost the same.
+    A price change splits one subscription in two; the min_charges gate below
+    then drops whichever half is too thin to be worth naming.
+    """
+    domain = re.sub(r"[^a-z0-9]+", "", addr.split("@")[-1].lower().split(".")[0])[:24]
+    display = (name or "").strip()
+    label = display if display and not GENERIC_SENDER.match(display) else ""
+    if not label:
+        # The product name is usually the first thing in a receipt subject line,
+        # before the amount: "Atlas Analytics EUR 49.00 monthly receipt".
+        head = MONEY.split(subject)[0].strip(" -–—:|")
+        label = head or domain
+    return f"sub_{domain}_{cents}", label[:60]
+
+
+def read_receipts(path: str, me: Sequence[str], min_charges: int = 2) -> List[dict]:
+    """Recurring charges, recovered from the receipts they send you.
+
+    An mbox has no `money.charged` in it, so the whole "cut what I don't use"
+    mandate was dead on imported mail while looking merely absent. Receipts are
+    the only trace a subscription leaves in a mailbox, and they are regular
+    enough to read: a sender, a currency amount, and the same pair recurring.
+
+    A single charge is a purchase, not a subscription, so `min_charges` guards
+    against turning one taxi receipt into a standing commitment.
+    """
+    mine = {a.strip().lower() for a in me}
+    seen: Dict[str, List[Tuple[int, int, str]]] = {}
+
+    with contextlib.closing(mailbox.mbox(path)) as box:
+        for msg in box:
+            ts = _when(msg)
+            senders = _people(msg.get("From"))
+            if ts is None or not senders:
+                continue
+            name, addr = senders[0]
+            if addr in mine:
+                continue
+            if not _is_receipt(msg):
+                continue
+            subject = (msg.get("Subject") or "").strip()
+            # The subject is the more reliable of the two: bulk senders reuse one
+            # body template across every plan they bill for.
+            cents = _cents(subject) or _cents(_body(msg, 400))
+            sid, label = _merchant(name, addr, subject, cents)
+            seen.setdefault(sid, []).append((ts, cents, label))
+
+    out: List[dict] = []
+    for sid, charges in seen.items():
+        if len(charges) < min_charges:
+            continue
+        charges.sort()
+        gaps = [b[0] - a[0] for a, b in zip(charges, charges[1:])]
+        typical = sorted(gaps)[len(gaps) // 2] if gaps else 0
+        period = "monthly" if 20 * 86400 <= typical <= 45 * 86400 else (
+            "yearly" if typical >= 300 * 86400 else "irregular")
+        amounts = sorted(c for _, c, _ in charges)
+        out.append({
+            "ts": charges[0][0],
+            "kind": E.SUBSCRIPTION_OBSERVED,
+            "entity": sid,
+            "actor": E.ACTOR_WORLD,
+            "payload": {"merchant": charges[0][2],
+                        "amount_cents": amounts[len(amounts) // 2],
+                        "period": period},
+        })
+        for ts, _, _ in charges:
+            out.append({"ts": ts, "kind": E.SUBSCRIPTION_CHARGED, "entity": sid,
+                        "actor": E.ACTOR_WORLD, "payload": {}})
+    return out
+
+
+# ------------------------------------------------------- calendars, over time
+
+
+def _stamp(path: str) -> int:
+    """When a calendar export was taken."""
+    with open(path, "r", encoding="utf-8", errors="replace") as fh:
+        raw = fh.read()
+    stamps = [
+        _ics_time(v, "") for v in re.findall(r"^(?:DTSTAMP|LAST-MODIFIED):(.+)$", raw, re.M)
+    ]
+    stamps = [s for s in stamps if s]
+    return max(stamps) if stamps else int(os.path.getmtime(path))
+
+
+def calendar_moves(paths: Sequence[str]) -> List[dict]:
+    """Meetings that moved, recovered by diffing successive exports.
+
+    A single ICS is a snapshot: it shows where a meeting ended up, never that it
+    was somewhere else first. Two exports of the same calendar do show it, and
+    that is the only signal in this data for "does this person move things".
+
+    The move is dated at the *later* export rather than at some guessed midpoint,
+    because that is genuinely when you would have found out -- and finding out is
+    the quantity the product scores.
+    """
+    snapshots = []
+    for path in paths:
+        starts = {e["entity"]: e["payload"] for e in read_ics(path)}
+        snapshots.append((_stamp(path), starts))
+    snapshots.sort()
+
+    out: List[dict] = []
+    for (_, older), (taken, newer) in zip(snapshots, snapshots[1:]):
+        for entity, now_ev in newer.items():
+            was = older.get(entity)
+            if was and was["start"] != now_ev["start"]:
+                out.append({
+                    "ts": taken,
+                    "kind": E.CALENDAR_MOVED,
+                    "entity": entity,
+                    "actor": E.ACTOR_WORLD,
+                    "payload": {"start": now_ev["start"], "end": now_ev["end"],
+                                "was": was["start"], "observed": "diff of two exports"},
+                })
     return out
 
 
