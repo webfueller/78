@@ -54,7 +54,8 @@ keeps your guess unless the fit beats it on choices it has not seen.
 
 This is real code — it is the fixture in `tests/test_rehearsal.py`, which runs
 the same commit, undo, quarantine and ledger tests against it that the mail
-product gets.
+product gets. For a domain that does real work, see
+[`workbench`](workbench.md): an agent editing files, previewed and reversible.
 
 ```python
 from rehearsal import Kernel, Projection
@@ -119,12 +120,12 @@ it is a refactor that was abandoned halfway.
 
 ## What is deliberately still missing
 
-**Side effects.** `Commits` takes an `execute` hook that runs inside the same
-transaction as the promotion, and nothing passes one. This product sends no mail,
-and a kernel whose first side-effect implementation is also its first test is not
-something to ship. When something does pass one, the undo window has to be
-rethought: you can withdraw a row from a local log; you cannot withdraw a message
-someone has read.
+**Side effects that cannot be undone.** `Commits` takes an `execute` hook that
+runs inside the same transaction as the promotion.
+[`workbench`](workbench.md) passes one: it writes files to disk, and its undo
+puts the bytes back from the log. That works because a file *can* be put back.
+Mail cannot, and until the undo window is rethought for actions that are gone the
+moment they happen, this kernel should not be asked to govern one.
 
 **Concurrency across machines.** One SQLite file, `BEGIN IMMEDIATE`, one writer
 at a time. That is correct and it is not distributed.

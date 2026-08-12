@@ -59,8 +59,14 @@ first paragraph.
 The first six of those rows have nothing to do with email, and now live in a
 separate package: [`rehearsal`](docs/kernel.md), the kernel. Any agent that takes
 irreversible actions needs a log, a fork, a receipt, an undo and a record of its
-own claims; `preflight` is the first domain built on that, and the tests prove it
-is not the only one it could be.
+own claims.
+
+There are two domains built on it. `preflight` is this one, the mail app.
+[`workbench`](docs/workbench.md) is an agent editing files in a directory —
+proposals you read before anything is written, a commit that moves the disk and
+the log in one transaction, and an undo that puts the bytes back exactly. That
+one is where the kernel's last untested seam got used: committing something the
+database cannot take back on its own.
 
 ## Two things a review caught that the README was quiet about
 
@@ -113,7 +119,7 @@ scoreboard can be checked against an answer key.
 Standard library only, no dependencies. Tested on Python 3.11.
 
 ```bash
-python3 -m unittest discover -s tests      # 127 tests, ~175s
+python3 -m unittest discover -s tests      # 153 tests, ~135s
 
 export DB=/tmp/preflight.db
 A="python3 -m preflight.cli --db $DB"
@@ -182,6 +188,21 @@ $A backtest --predictor per-contact     --holdout-days 120
 $A backtest --predictor per-contact-age --holdout-days 120
 $A score
 ```
+
+### The other domain: an agent editing files
+
+```bash
+workbench --db wb.db --root repo observe            # the tree goes into the log
+workbench --db wb.db --root repo propose --from-dir staged   # writes nothing
+workbench --db wb.db --root repo commit w_..._apply          # disk + log, one transaction
+workbench --db wb.db --root repo check --command "pytest -q"
+workbench --db wb.db --root repo undo c_...                  # bytes back, exactly
+```
+
+Same kernel, different world: no mail, no calendar, no money. Proposals live on a
+fork until you read them, the commit refuses if a file changed behind its back,
+and the undo restores from the log rather than a backup.
+[`docs/workbench.md`](docs/workbench.md) has the walkthrough and the limits.
 
 ---
 
@@ -352,15 +373,25 @@ preflight/          one domain built on it
   web/map.js      the branch map, live and as a shareable card
   synthetic.py    a seeded life, so the tests have ground truth
   cli.py
+workbench/          a second domain: an agent editing files
+  disk.py           the only module that writes outside the database
+  state.py          the tree, projected from the log — and the restore point
+  commits.py        disk and log move together, or neither moves
+  propose.py        edits become plans, risk measured from this repo's history
+  checks.py         run the checks, record the verdict, settle the claims
+  observe.py        telling the log what is on the disk, deliberately
+  cli.py
+
 tests/test_twin.py       the engine
 tests/test_app.py        the product
 tests/test_mvp.py        the cold start and the card
 tests/test_preferences.py the learned weights
 tests/test_qa.py         what a hostile review found
 tests/test_rehearsal.py  the kernel, driven by a domain that is not mail
+tests/test_workbench.py  the first commit that leaves the database
 ```
 
-127 tests. `python3 -m unittest discover -s tests`
+153 tests. `python3 -m unittest discover -s tests`
 
 **Why it is split.** The consumer value decays — 5–16% of week one once the
 backlog is clear ([002](docs/experiment-002.md)), and no scoring change reaches

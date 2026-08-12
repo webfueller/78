@@ -13,13 +13,15 @@ dependencies = []
 
 [project.scripts]
 preflight = "preflight.cli:main"
+workbench = "workbench.cli:main"
 
 [tool.setuptools]
-# Two packages, one direction: preflight imports rehearsal and never the reverse.
-# `rehearsal` carries no dependency on this product -- tests/test_rehearsal.py
-# fails the build if it grows one -- so lifting it into its own distribution is a
-# move and a five-line pyproject, whenever that is worth doing.
-packages = ["preflight", "rehearsal"]
+# One kernel, two domains, one direction: `preflight` and `workbench` import
+# `rehearsal` and never the reverse, and they do not import each other.
+# tests/test_rehearsal.py fails the build if the kernel grows a dependency on a
+# domain, so lifting it into its own distribution stays a move and a five-line
+# pyproject, whenever that is worth doing.
+packages = ["preflight", "rehearsal", "workbench"]
 
 [tool.setuptools.package-data]
 preflight = ["web/*"]
