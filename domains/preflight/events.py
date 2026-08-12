@@ -3,7 +3,7 @@
 The kinds below are this domain's whole vocabulary. Everything structural --
 what an event *is*, how it is hashed, who is allowed to author one, what a
 commit or a claim looks like -- belongs to the kernel and is imported from
-`rehearsal`, not redefined here.
+`takeback`, not redefined here.
 
 Anything an agent proposes in a fork uses the same kinds a real observation
 would, so a rehearsed week and a lived week project through identical code.
@@ -11,7 +11,7 @@ would, so a rehearsed week and a lived week project through identical code.
 
 from __future__ import annotations
 
-from rehearsal.events import (  # noqa: F401  (this module is the domain's event namespace)
+from takeback.events import (  # noqa: F401  (this module is the domain's event namespace)
     ACTOR_AGENT,
     ACTOR_USER,
     ACTOR_WORLD,

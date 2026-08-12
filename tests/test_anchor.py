@@ -24,9 +24,9 @@ import unittest
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT_DIR)
 
-from rehearsal import Kernel, Projection, anchor, audit, cli
-from rehearsal.anchor import Anchor, AnchorError
-from rehearsal.store import TRUNK, EventStore
+from takeback import Kernel, Projection, anchor, audit, cli
+from takeback.anchor import Anchor, AnchorError
+from takeback.store import TRUNK, EventStore
 
 SEEN = "thing.seen"
 CHANGED = "thing.changed"
@@ -78,7 +78,7 @@ class AnchorCase(unittest.TestCase):
         chain alone cannot see — afterwards `verify` passes and the checkpoint
         matches, because both were updated too.
         """
-        from rehearsal.events import GENESIS, digest
+        from takeback.events import GENESIS, digest
 
         rows = list(self.store.db.execute(
             "SELECT * FROM events WHERE branch = ? ORDER BY gid", (TRUNK,)))

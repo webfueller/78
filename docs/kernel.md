@@ -1,6 +1,6 @@
 # The kernel
 
-`rehearsal` is the engine, and as of now the product. This document is the
+`takeback` is the engine, and as of now the product. This document is the
 contract; [the README](../README.md) is the front door.
 
 An agent that takes irreversible actions on someone's behalf needs a handful of
@@ -17,7 +17,7 @@ scoring change reaches that, because the problem is the stock, not the sort. The
 machinery underneath does not decay: every agent action needs a preview,
 forever.
 
-So it is its own package and its own distribution — `pip install rehearsal` gets
+So it is its own package and its own distribution — `pip install takeback` gets
 a log, a fork, a receipt and an undo, and no opinions about mail — with its own
 tests, and a test that fails if it ever learns what is built on top of it.
 
@@ -57,13 +57,13 @@ keeps your guess unless the fit beats it on choices it has not seen.
 
 ## A whole domain, in about forty lines
 
-This is real code — it is the fixture in `tests/test_rehearsal.py`, which runs
+This is real code — it is the fixture in `tests/test_takeback.py`, which runs
 the same commit, undo, quarantine and ledger tests against it that the mail
 product gets. For a domain that does real work, see
 [`workbench`](workbench.md): an agent editing files, previewed and reversible.
 
 ```python
-from rehearsal import Kernel, Projection
+from takeback import Kernel, Projection
 
 SERVICE_SEEN, RELEASE_CUT, DEPLOYED, PAGED = (
     "fleet.service_seen", "fleet.release_cut", "fleet.deployed", "fleet.paged")
@@ -151,7 +151,7 @@ the limit stays honest.
 ## Running its tests
 
 ```bash
-python3 -m unittest discover -s tests -p "test_rehearsal.py"
+python3 -m unittest discover -s tests -p "test_takeback.py"
 ```
 
 14 tests, well under a second. They use no mail, no synthetic life, and no part

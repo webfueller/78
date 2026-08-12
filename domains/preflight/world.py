@@ -1,7 +1,7 @@
 """Projection: events in, world out.
 
 Mail, meetings and money, folded from the log. Claims, commits and undo are the
-kernel's half of this and live in `rehearsal.projection`; what is here is only
+kernel's half of this and live in `takeback.projection`; what is here is only
 what makes this domain *this* domain.
 """
 
@@ -10,8 +10,8 @@ from __future__ import annotations
 import dataclasses
 from typing import Dict, List, Optional, Sequence
 
-from rehearsal.events import Event
-from rehearsal.projection import Projection
+from takeback.events import Event
+from takeback.projection import Projection
 
 from . import events as E
 

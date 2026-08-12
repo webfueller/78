@@ -7,7 +7,7 @@ a receipt. Undo puts the bytes back, from the log, exactly.
 
     observe → propose → (read the preview) → commit → check → undo, if you must
 
-The machinery is `rehearsal`. What is here is what a file is, what can go wrong
+The machinery is `takeback`. What is here is what a file is, what can go wrong
 with one, and how much that is worth.
 """
 

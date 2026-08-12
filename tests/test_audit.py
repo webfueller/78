@@ -18,8 +18,8 @@ import unittest
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT_DIR)
 
-from rehearsal import Kernel, Projection, audit, cli
-from rehearsal.store import TRUNK, EventStore
+from takeback import Kernel, Projection, audit, cli
+from takeback.store import TRUNK, EventStore
 
 SEEN = "thing.seen"
 CHANGED = "thing.changed"
@@ -204,6 +204,33 @@ class TestTheFrontPage(unittest.TestCase):
     piece of the documentation a reader will definitely try, and the only one
     whose failure they will read as "this project does not work".
     """
+
+    def test_the_install_line_names_the_thing_this_repository_builds(self):
+        """The defect that forced a rename, turned into a test.
+
+        The README said `pip install rehearsal` for months. That name belongs to
+        somebody else on PyPI, so the one command on the front page would have
+        installed a stranger's package — the worst possible first impression, and
+        invisible to every test in the suite because none of them read the README.
+        """
+        import io as _io
+        import re as _re
+
+        with _io.open(os.path.join(ROOT_DIR, "README.md"), encoding="utf-8") as fh:
+            readme = fh.read()
+        with _io.open(os.path.join(ROOT_DIR, "pyproject.toml"), encoding="utf-8") as fh:
+            project = fh.read()
+
+        declared = _re.search(r'^name\s*=\s*"([^"]+)"', project, _re.M).group(1)
+        installs = set(_re.findall(r"pip install ([a-z][a-z0-9_-]*)\b", readme))
+        installs.discard("-e")
+
+        self.assertIn(declared, installs,
+                      f"the README never says `pip install {declared}`")
+        self.assertEqual(installs, {declared},
+                         "the README offers an install name this repository does not build")
+        self.assertTrue(os.path.isdir(os.path.join(ROOT_DIR, declared)),
+                        f"{declared} is the distribution name but not a package here")
 
     def test_the_readme_example_runs(self):
         import io as _io

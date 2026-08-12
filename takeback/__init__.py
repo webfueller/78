@@ -1,11 +1,11 @@
-"""rehearsal — let an agent rehearse, then commit, with a receipt and an undo.
+"""takeback — your agent cannot touch anything until you have seen it.
 
 Nothing an agent does here is real until it is committed. Before that it lives on
 a fork of an append-only, hash-chained log, where it can be read, scored and
 thrown away. After it, it is one atomic transaction with a receipt, a withdrawal
 window, and a state hash proving the undo put things back exactly.
 
-The kernel supplies six things and knows nothing about any particular domain:
+The engine supplies eight things and knows nothing about any particular domain:
 
   store        an append-only hash-chained log that forks and rewinds
   projection   deterministic fold from events to state, with a stable hash
@@ -13,6 +13,8 @@ The kernel supplies six things and knows nothing about any particular domain:
   ledger       claims with resolvers and due dates, scored against a baseline
   preferences  scoring weights learned from what was actually committed
   futures      exact enumeration of what could happen
+  audit        what happened, in a form a person can read
+  anchor       the head, stamped where the log cannot reach it
 
 A domain provides a `Projection` subclass, a resolver per question it wants to be
 held to, and a prior over the features it scores plans on. `Kernel` binds them:

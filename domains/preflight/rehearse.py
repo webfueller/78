@@ -24,14 +24,14 @@ import dataclasses
 import hashlib
 from typing import Dict, List, Optional, Sequence, Tuple
 
-from rehearsal import futures as F
+from takeback import futures as F
 
 from . import events as E
 from . import predictions as P
 from . import preferences as P_PREF
 from . import stakes as S
 from .predictors import REGISTRY, PerContactAge, Predictor
-from rehearsal.store import TRUNK, EventStore
+from takeback.store import TRUNK, EventStore
 from .world import Thread, World, project
 
 HOUR = 3600
@@ -366,7 +366,7 @@ def enumerate_futures(unc: Sequence[Uncertainty], keep: int = MAX_BRANCHES) -> L
 
     The uncertainties carry a great deal of mail-specific baggage; the
     enumeration needs one number from each of them and nothing else, which is
-    why the arithmetic lives in `rehearsal.futures` and this is the unwrapping.
+    why the arithmetic lives in `takeback.futures` and this is the unwrapping.
     """
     return F.enumerate_futures([u.p for u in unc], keep=keep)
 
@@ -411,7 +411,7 @@ def rehearse(
             for u in plan.uncertain:
                 P.record(store, origin_branch=plan_branch, resolver=u.resolver,
                          params=u.params, p=u.p, claim=u.describe, made_at=now,
-                         resolve_by=u.resolve_by, predictor="rehearsal/per-contact-age")
+                         resolve_by=u.resolve_by, predictor="takeback/per-contact-age")
 
         branches = []
         for k, future in enumerate(enumerate_futures(plan.uncertain)):

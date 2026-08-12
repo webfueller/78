@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.join(ROOT_DIR, "domains"))  # what is built on it
 
 from preflight import commits, events as E, ingest, predictions as P, rehearse, server, synthetic
 from preflight.rehearse import Uncertainty
-from rehearsal.store import TRUNK, EventStore, StoreError
+from takeback.store import TRUNK, EventStore, StoreError
 from preflight.world import project
 
 DAY = 24 * 3600
@@ -97,7 +97,7 @@ class TestRehearsal(unittest.TestCase):
 
     def test_every_plan_records_its_claims(self):
         claims = [r for r in P.ledger(self.store).values()
-                  if r["predictor"].startswith("rehearsal/")]
+                  if r["predictor"].startswith("takeback/")]
         self.assertGreaterEqual(len(claims), sum(len(p["uncertain"]) for p in self.map["plans"]))
         for r in claims:
             self.assertGreater(r["resolve_by"], r["made_at"])

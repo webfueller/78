@@ -22,7 +22,7 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from . import events as E
 from . import stakes as S
-from rehearsal.store import TRUNK, EventStore
+from takeback.store import TRUNK, EventStore
 
 HOUR = 3600
 

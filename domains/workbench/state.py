@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from typing import Dict, List, Sequence
 
-from rehearsal.events import Event
-from rehearsal.projection import Projection
+from takeback.events import Event
+from takeback.projection import Projection
 
 from . import events as E
 

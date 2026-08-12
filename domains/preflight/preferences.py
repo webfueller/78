@@ -1,7 +1,7 @@
 """Weights learned from what you actually commit, pointed at mail.
 
 The conditional logit, the ridge, the leave-one-out gate and the refusal to
-claim a preference it has not earned are all `rehearsal.preferences`. What is
+claim a preference it has not earned are all `takeback.preferences`. What is
 here is this domain's feature names, its starting guesses, and the module-level
 shape the rest of the app calls.
 """
@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional, Sequence, Tuple
 
-from rehearsal.preferences import (  # noqa: F401
+from takeback.preferences import (  # noqa: F401
     CHOSEN,
     MIN_CHOICES,
     OFFERED,
@@ -18,7 +18,7 @@ from rehearsal.preferences import (  # noqa: F401
     RIDGE,
     chance_top1,
 )
-from rehearsal.store import EventStore
+from takeback.store import EventStore
 
 from .kernel import KERNEL
 from .scoring import PRIOR, features  # noqa: F401  (re-exported: what a plan is judged on)

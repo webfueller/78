@@ -99,10 +99,10 @@ Refusals come back as tool errors with the reason in them rather than as
 protocol failures, because "I refused to overwrite a file you edited" is
 something a model can read and act on.
 
-**Tamper-evidence, if you want it.** Set `REHEARSAL_ANCHOR_KEY` to a key file
-(`rehearsal anchor --init` makes one) and every commit stamps its new head into
+**Tamper-evidence, if you want it.** Set `TAKEBACK_ANCHOR_KEY` to a key file
+(`takeback anchor --init` makes one) and every commit stamps its new head into
 an append-only file outside the database. Nothing else changes — no flag, no
-argument — and `rehearsal verify` then catches a rewritten history rather than
+argument — and `takeback verify` then catches a rewritten history rather than
 just a clumsily edited one. See [the README](../README.md#what-it-refuses-to-pretend)
 for what that does and does not buy.
 

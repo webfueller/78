@@ -8,7 +8,7 @@ import os
 import sys
 from typing import List, Optional
 
-from rehearsal.store import TRUNK, EventStore, StoreError
+from takeback.store import TRUNK, EventStore, StoreError
 
 from . import backtest, checks, commits, disk, gitlog, mcp, observe, propose, synthetic
 from .state import Tree

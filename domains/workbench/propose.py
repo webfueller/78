@@ -15,9 +15,9 @@ import dataclasses
 import hashlib
 from typing import Dict, List, Optional, Sequence
 
-from rehearsal import futures as F
-from rehearsal.events import canonical
-from rehearsal.store import TRUNK, EventStore
+from takeback import futures as F
+from takeback.events import canonical
+from takeback.store import TRUNK, EventStore
 
 from . import churn, disk
 from . import events as E

@@ -28,7 +28,7 @@ from http.server import ThreadingHTTPServer
 
 from preflight import backtest, commits, events as E, ingest, paste, predictions as P
 from preflight import predictors, rehearse, server, synthetic
-from rehearsal.store import TRUNK, EventStore, StoreError
+from takeback.store import TRUNK, EventStore, StoreError
 from preflight.world import project
 
 DAY = 24 * 3600

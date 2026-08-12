@@ -1,6 +1,6 @@
 """The kernel, exercised by a domain that has never heard of email.
 
-If `rehearsal` is really a standalone package, then a second domain -- built here
+If `takeback` is really a standalone package, then a second domain -- built here
 in eighty lines, about deploying software, sharing not one concept with a
 mailbox -- should get the log, the fork, the receipt, the undo, the ledger and
 the learned weights for free. Everything below is that claim, made mechanical.
@@ -22,10 +22,10 @@ ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT_DIR)                       # the engine
 sys.path.insert(0, os.path.join(ROOT_DIR, "domains"))  # what is built on it
 
-import rehearsal
-from rehearsal import Kernel, Projection
-from rehearsal.futures import count_distribution, enumerate_futures
-from rehearsal.store import TRUNK, EventStore, StoreError
+import takeback
+from takeback import Kernel, Projection
+from takeback.futures import count_distribution, enumerate_futures
+from takeback.store import TRUNK, EventStore, StoreError
 
 HOUR = 3600
 ROOT = ROOT_DIR
@@ -233,20 +233,20 @@ class TestTheKernelIsStandalone(unittest.TestCase):
     def test_no_module_in_the_kernel_mentions_the_product(self):
         """The extraction is only real while this passes."""
         offenders = []
-        for name in sorted(os.listdir(os.path.join(ROOT, "rehearsal"))):
+        for name in sorted(os.listdir(os.path.join(ROOT, "takeback"))):
             if not name.endswith(".py"):
                 continue
-            with io.open(os.path.join(ROOT, "rehearsal", name), encoding="utf-8") as fh:
+            with io.open(os.path.join(ROOT, "takeback", name), encoding="utf-8") as fh:
                 body = fh.read()
             for lineno, line in enumerate(body.splitlines(), 1):
                 if "preflight" in line:
-                    offenders.append(f"rehearsal/{name}:{lineno}: {line.strip()}")
+                    offenders.append(f"takeback/{name}:{lineno}: {line.strip()}")
         self.assertEqual(offenders, [], "the kernel has grown a dependency on the product")
 
     def test_importing_the_kernel_does_not_import_the_product(self):
         """Not just unmentioned -- unreachable. Checked in a clean interpreter."""
         code = (
-            "import sys; import rehearsal; "
+            "import sys; import takeback; "
             "print(any(m == 'preflight' or m.startswith('preflight.') for m in sys.modules))"
         )
         out = subprocess.run(
@@ -256,8 +256,8 @@ class TestTheKernelIsStandalone(unittest.TestCase):
 
     def test_the_kernel_ships_the_six_parts(self):
         for part in ("EventStore", "Projection", "Commits", "Ledger", "Preferences", "Kernel"):
-            self.assertTrue(hasattr(rehearsal, part), part)
-        self.assertTrue(callable(rehearsal.enumerate_futures))
+            self.assertTrue(hasattr(takeback, part), part)
+        self.assertTrue(callable(takeback.enumerate_futures))
 
 
 if __name__ == "__main__":

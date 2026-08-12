@@ -24,10 +24,10 @@ from __future__ import annotations
 
 from typing import List, Optional, Sequence
 
-from rehearsal.anchor import Anchor
-from rehearsal.commits import Commits
-from rehearsal.events import Event
-from rehearsal.store import TRUNK, EventStore, StoreError
+from takeback.anchor import Anchor
+from takeback.commits import Commits
+from takeback.events import Event
+from takeback.store import TRUNK, EventStore, StoreError
 
 from . import disk
 from . import events as E
@@ -66,7 +66,7 @@ def _engine(store: EventStore, root: Optional[str] = None) -> Commits:
     """The kernel's commit machinery, with this workbench's side effect attached.
 
     The anchor comes from the environment rather than a flag: set
-    REHEARSAL_ANCHOR_KEY and every commit stamps its new head outside the log,
+    TAKEBACK_ANCHOR_KEY and every commit stamps its new head outside the log,
     with nothing else to remember. Unset, everything works exactly as before and
     `rehearsal verify` says which mode it is in.
     """

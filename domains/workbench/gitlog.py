@@ -15,7 +15,7 @@ from __future__ import annotations
 import subprocess
 from typing import Dict, Iterable, List, Optional, Sequence
 
-from rehearsal.store import TRUNK, EventStore
+from takeback.store import TRUNK, EventStore
 
 from . import events as E
 

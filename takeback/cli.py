@@ -1,4 +1,4 @@
-"""rehearsal, from a terminal.
+"""takeback, from a terminal.
 
 Deliberately small, and deliberately read-only. Everything here answers "what
 happened and can I trust it" — the questions somebody asks *about* an agent
@@ -22,7 +22,7 @@ from .store import TRUNK, EventStore, StoreError
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(
-        prog="rehearsal",
+        prog="takeback",
         description="Read the record: what an agent committed, what it was chosen "
                     "over, what it predicted, and whether the chain holds.",
     )

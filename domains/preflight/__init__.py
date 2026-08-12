@@ -5,14 +5,14 @@ forked so an agent can run a week inside the copy, and committed one branch at a
 time with a receipt and an undo window behind it.
 
 The log, the fork, the receipt, the undo and the prediction ledger are not this
-package -- they are `rehearsal`, and they know nothing about mail. What is here
+package -- they are `takeback`, and they know nothing about mail. What is here
 is the domain: what an event means, what a plan is worth, and which claims this
 product allows itself to be judged on.
 
 There is no language model in here. That is the point.
 """
 
-from rehearsal.store import TRUNK, EventStore, StoreError
+from takeback.store import TRUNK, EventStore, StoreError
 from .world import World, project
 
 __all__ = ["EventStore", "StoreError", "TRUNK", "World", "project"]

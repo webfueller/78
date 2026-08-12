@@ -5,12 +5,12 @@ therefore promote, undo, and refuse to run twice. The fourth is reality
 answering back: the checks ran, and here is what they said.
 
 Structure -- what an event is, how it is hashed, who may author one -- belongs to
-`rehearsal`.
+`takeback`.
 """
 
 from __future__ import annotations
 
-from rehearsal.events import (  # noqa: F401  (this module is the domain's event namespace)
+from takeback.events import (  # noqa: F401  (this module is the domain's event namespace)
     ACTOR_AGENT,
     ACTOR_USER,
     ACTOR_WORLD,

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Dict
 
-from rehearsal.ledger import Resolver
+from takeback.ledger import Resolver
 
 from .world import World
 

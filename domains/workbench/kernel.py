@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from rehearsal import Kernel
+from takeback import Kernel
 
 from .resolvers import RESOLVERS
 from .scoring import PRIOR

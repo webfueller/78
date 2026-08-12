@@ -1,7 +1,7 @@
 """Committing a week, and taking it back.
 
 The rules -- only agent-authored events promote, nothing is ever deleted, all of
-it or none of it -- are the kernel's, and enforced in `rehearsal.commits`. This
+it or none of it -- are the kernel's, and enforced in `takeback.commits`. This
 module is the mail-shaped door onto them.
 """
 
@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from typing import Optional
 
-from rehearsal.commits import UNDO_WINDOW, already_promoted, promotable  # noqa: F401
-from rehearsal.store import EventStore
+from takeback.commits import UNDO_WINDOW, already_promoted, promotable  # noqa: F401
+from takeback.store import EventStore
 
 from .kernel import KERNEL
 

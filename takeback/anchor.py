@@ -41,7 +41,7 @@ from typing import Dict, List, Optional
 from .events import GENESIS, canonical
 from .store import TRUNK, EventStore, StoreError
 
-ENV_KEY = "REHEARSAL_ANCHOR_KEY"   # path to the key file
+ENV_KEY = "TAKEBACK_ANCHOR_KEY"   # path to the key file
 VERSION = 1
 KEY_BYTES = 32
 
@@ -79,7 +79,7 @@ def load_key(path: Optional[str] = None) -> bytes:
     if not path:
         raise AnchorError(
             f"no anchor key: pass one, or set {ENV_KEY} to the path of a key file "
-            "(`rehearsal anchor --init` makes one)"
+            "(`takeback anchor --init` makes one)"
         )
     if not os.path.exists(path):
         raise AnchorError(f"no anchor key at {path}")
@@ -253,7 +253,7 @@ class Anchor:
             return {
                 "anchored": True, "branch": branch, "ok": True, "behind": True,
                 "why": (f"{len(own) - last['events']} events on {branch} since the last "
-                        f"anchor; run `rehearsal anchor --write` to stamp them"),
+                        f"anchor; run `takeback anchor --write` to stamp them"),
                 "anchored_events": last["events"], "events": len(own),
             }
 

@@ -20,7 +20,7 @@ ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT_DIR)                       # the engine
 sys.path.insert(0, os.path.join(ROOT_DIR, "domains"))  # what is built on it
 
-from rehearsal.store import TRUNK, EventStore
+from takeback.store import TRUNK, EventStore
 
 from workbench import backtest, churn, gitlog, synthetic
 from workbench.state import Tree

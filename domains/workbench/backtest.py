@@ -16,8 +16,8 @@ from __future__ import annotations
 
 from typing import Dict
 
-from rehearsal.ledger import brier, calibration, leave_one_out_base_rates
-from rehearsal.store import TRUNK, EventStore
+from takeback.ledger import brier, calibration, leave_one_out_base_rates
+from takeback.store import TRUNK, EventStore
 
 from .churn import CHURN_HORIZON, REGISTRY, moments
 from .state import Tree

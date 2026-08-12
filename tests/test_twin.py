@@ -12,7 +12,7 @@ sys.path.insert(0, ROOT_DIR)                       # the engine
 sys.path.insert(0, os.path.join(ROOT_DIR, "domains"))  # what is built on it
 
 from preflight import backtest, commits, events as E, predictions as P, synthetic
-from rehearsal.store import TRUNK, EventStore, StoreError
+from takeback.store import TRUNK, EventStore, StoreError
 from preflight.world import project
 
 DAY = 24 * 3600

@@ -1,6 +1,6 @@
 # Preflight — the mail twin
 
-The first domain built on [`rehearsal`](kernel.md), and the reason the engine
+The first domain built on [`takeback`](kernel.md), and the reason the engine
 exists at all: it was carved out of this.
 
 It is no longer the headline. Three experiments established that the value here

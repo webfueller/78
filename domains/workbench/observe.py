@@ -11,7 +11,7 @@ from __future__ import annotations
 import time
 from typing import Dict, Iterable, List, Optional
 
-from rehearsal.store import TRUNK, EventStore
+from takeback.store import TRUNK, EventStore
 
 from . import disk
 from . import events as E

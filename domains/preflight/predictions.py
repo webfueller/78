@@ -1,7 +1,7 @@
 """The prediction ledger, pointed at mail.
 
 The machinery -- writing a claim, resolving it when its moment arrives, scoring
-the lot against a leave-one-out base rate -- is `rehearsal.ledger`. What is here
+the lot against a leave-one-out base rate -- is `takeback.ledger`. What is here
 is this domain's four questions and the module-level shape the rest of the app
 calls.
 """
@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional
 
-from rehearsal.ledger import LEDGER, brier, leave_one_out_base_rates  # noqa: F401
-from rehearsal.store import EventStore
+from takeback.ledger import LEDGER, brier, leave_one_out_base_rates  # noqa: F401
+from takeback.store import EventStore
 
 from .kernel import KERNEL
 from .resolvers import RESOLVERS  # noqa: F401  (re-exported: the questions we answer)

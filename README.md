@@ -1,6 +1,6 @@
-# rehearsal
+# takeback
 
-**Let an agent rehearse, then commit — with a receipt and an undo.**
+**Your agent can't touch anything until you've seen it — and you can take back anything it did.**
 
 You would not let a new colleague run a script on your laptop without watching.
 An agent is the same, and "are you sure? [y/N]" is not watching — it tells you a
@@ -13,7 +13,7 @@ makes it real, and a commit is one transaction with a receipt, a withdrawal
 window, and a hash proving the undo put things back exactly.
 
 ```bash
-pip install rehearsal
+pip install takeback
 ```
 
 No dependencies. Standard library only, Python 3.9+.
@@ -24,7 +24,7 @@ No dependencies. Standard library only, Python 3.9+.
 
 ```python
 import time
-from rehearsal import Kernel, Projection, EventStore, TRUNK
+from takeback import Kernel, Projection, EventStore, TRUNK
 
 class Tickets(Projection):
     def apply(self, ev):                     # your events, your rules
@@ -70,11 +70,11 @@ previewable, atomic, auditable and reversible is the engine's.
 
 ## The audit trail
 
-`pip install rehearsal` also gives you a command. It is read-only on purpose —
+`pip install takeback` also gives you a command. It is read-only on purpose —
 the tool you check the record with should not be able to alter it.
 
 ```console
-$ rehearsal --db wb.db audit
+$ takeback --db wb.db audit
 
 AUDIT — trunk — 1 committed, 1 undone
 
@@ -161,17 +161,17 @@ write the events table can write the checkpoints table in the same breath.
 So the head also goes where the log cannot reach:
 
 ```bash
-rehearsal --db wb.db anchor --init --key ~/.config/rehearsal.key
-export REHEARSAL_ANCHOR_KEY=~/.config/rehearsal.key   # that is the whole setup
+takeback --db wb.db anchor --init --key ~/.config/takeback.key
+export TAKEBACK_ANCHOR_KEY=~/.config/takeback.key   # that is the whole setup
 ```
 
 Every commit now stamps `(branch, count, head hash, time)` into an append-only
 file, authenticated with a key held outside the database. Forging history needs
-the key as well as write access. `rehearsal verify` checks both and exits 2 if
+the key as well as write access. `takeback verify` checks both and exits 2 if
 either disagrees:
 
 ```console
-$ rehearsal --db wb.db verify
+$ takeback --db wb.db verify
 { "chain_ok": true,            ← the forgery is invisible to the chain
   "anchor_ok": false,
   "anchor_why": "trunk has the same number of events as the anchor but a
@@ -194,7 +194,7 @@ message cannot, which is why nothing here sends one yet.
 ## Layout
 
 ```
-rehearsal/          the engine — pip install rehearsal
+takeback/          the engine — pip install takeback
   store.py          append-only log, branches, forks, integrity check
   events.py         immutable event, canonical form, hash chain
   projection.py     events in, state out, stable state hash
@@ -211,7 +211,7 @@ domains/            what is built on it — pip install -e domains
   preflight/        the mail twin, and where this came from
 
 tests/              210 tests, ~160s
-  test_rehearsal.py   the engine, driven by a domain that is not mail
+  test_takeback.py    the engine, driven by a domain that is not mail
   test_audit.py       the account, and whether it is true
   test_anchor.py      the forgery the chain cannot see, performed and caught
   test_workbench.py   the first commit that leaves the database
@@ -224,7 +224,7 @@ tests/              210 tests, ~160s
 python3 -m unittest discover -s tests
 ```
 
-Two directions, one rule: `domains/` imports `rehearsal`, never the reverse. Two
+Two directions, one rule: `domains/` imports `takeback`, never the reverse. Two
 tests enforce it — one greps every engine module for a domain's name, one imports
 the engine in a clean interpreter and asserts no domain reaches `sys.modules`.
 

@@ -14,7 +14,7 @@ sys.path.insert(0, ROOT_DIR)                       # the engine
 sys.path.insert(0, os.path.join(ROOT_DIR, "domains"))  # what is built on it
 
 from preflight import paste, rehearse, server, synthetic
-from rehearsal.store import TRUNK, EventStore
+from takeback.store import TRUNK, EventStore
 from preflight.world import project
 
 WEB = os.path.join(ROOT_DIR, "domains", "preflight", "web")

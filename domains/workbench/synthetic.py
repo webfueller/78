@@ -15,7 +15,7 @@ from __future__ import annotations
 import random
 from typing import Dict, List, Optional
 
-from rehearsal.store import TRUNK, EventStore
+from takeback.store import TRUNK, EventStore
 
 from . import events as E
 

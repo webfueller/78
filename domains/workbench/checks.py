@@ -15,7 +15,7 @@ import subprocess
 import time
 from typing import List, Optional
 
-from rehearsal.store import TRUNK, EventStore
+from takeback.store import TRUNK, EventStore
 
 from . import events as E
 from .kernel import KERNEL

@@ -27,7 +27,7 @@ from typing import Dict, List, Optional, Tuple
 from . import events as E
 from . import rehearse as R
 from .predictors import POPULATION_MOVE_PRIOR, POPULATION_REPLY_PRIOR
-from rehearsal.store import TRUNK, EventStore
+from takeback.store import TRUNK, EventStore
 from .world import project
 
 THREAD = "th_pasted"

@@ -30,7 +30,7 @@ import sys
 import traceback
 from typing import Any, Callable, Dict, List, Optional, TextIO
 
-from rehearsal.store import TRUNK, EventStore, StoreError
+from takeback.store import TRUNK, EventStore, StoreError
 
 from . import checks, commits, disk, gitlog, observe, propose
 from .state import Tree

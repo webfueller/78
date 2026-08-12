@@ -29,7 +29,7 @@ from typing import Optional
 from urllib.parse import parse_qs, urlparse
 
 from . import commits, paste, predictions as P, preferences, rehearse
-from rehearsal.store import TRUNK, EventStore, StoreError
+from takeback.store import TRUNK, EventStore, StoreError
 from .world import project
 
 WEB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
@@ -239,7 +239,7 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/score":
                 self._json({
                     "overall": P.score(store),
-                    "rehearsal": P.score(store, predictor="rehearsal/per-contact-age"),
+                    "rehearsal": P.score(store, predictor="takeback/per-contact-age"),
                     "open_claims": sum(
                         1 for r in P.ledger(store).values() if r["outcome"] is None
                     ),
