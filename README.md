@@ -119,7 +119,7 @@ scoreboard can be checked against an answer key.
 Standard library only, no dependencies. Tested on Python 3.11.
 
 ```bash
-python3 -m unittest discover -s tests      # 163 tests, ~190s
+python3 -m unittest discover -s tests      # 179 tests, ~185s
 
 export DB=/tmp/preflight.db
 A="python3 -m preflight.cli --db $DB"
@@ -203,6 +203,13 @@ Same kernel, different world: no mail, no calendar, no money. Proposals live on 
 fork until you read them, the commit refuses if a file changed behind its back,
 and the undo restores from the log rather than a backup.
 [`docs/workbench.md`](docs/workbench.md) has the walkthrough and the limits.
+
+It is also an MCP server, so an agent can drive it directly:
+`workbench --db wb.db --root repo mcp --check "pytest -q"`. Eight tools, stdlib
+only. `propose` writes nothing, `commit` is the only call that touches the
+filesystem, and neither the root nor the check command can be chosen by the
+model — a test reads every tool schema and fails if one grows a directory
+argument.
 
 Its risk numbers have been backtested against two real repositories with fourteen
 years of history each, plus a generated one with a known answer key:
@@ -391,6 +398,7 @@ workbench/          a second domain: an agent editing files
   churn.py          the risk model — one copy, used by the preview and the backtest
   backtest.py       walk a repository's history, predict, score against what happened
   gitlog.py         a repository's own history, as evidence
+  mcp.py            the same loop, as tools an agent can call
   synthetic.py      a generated repository with a known answer key
   observe.py        telling the log what is on the disk, deliberately
   cli.py
@@ -403,9 +411,10 @@ tests/test_qa.py         what a hostile review found
 tests/test_rehearsal.py  the kernel, driven by a domain that is not mail
 tests/test_workbench.py  the first commit that leaves the database
 tests/test_churn.py      the risk numbers, and whether they know anything
+tests/test_mcp.py        the agent-facing server, and what it will not let one do
 ```
 
-163 tests. `python3 -m unittest discover -s tests`
+179 tests. `python3 -m unittest discover -s tests`
 
 **Why it is split.** The consumer value decays — 5–16% of week one once the
 backlog is clear ([002](docs/experiment-002.md)), and no scoring change reaches

@@ -10,7 +10,7 @@ from typing import List, Optional
 
 from rehearsal.store import TRUNK, EventStore, StoreError
 
-from . import backtest, checks, commits, disk, gitlog, observe, propose, synthetic
+from . import backtest, checks, commits, disk, gitlog, mcp, observe, propose, synthetic
 from .state import Tree
 
 
@@ -73,6 +73,10 @@ def main(argv=None) -> int:
     p.add_argument("--predictor", default=None, help="omit to compare all of them")
     p.add_argument("--horizon-days", type=float, default=7.0)
 
+    p = sub.add_parser("mcp", help="serve the workbench as tools an agent can call")
+    p.add_argument("--check", help="the command `workbench_run_checks` runs. "
+                                   "Fixed here on purpose: the agent cannot choose it.")
+
     args = ap.parse_args(argv)
     root = os.path.abspath(args.root)
     store = EventStore(args.db)
@@ -113,6 +117,12 @@ def main(argv=None) -> int:
         elif args.cmd == "seed-repo":
             key = synthetic.seed_repo(store, days=args.days, paths=args.paths, seed=args.seed)
             out({"paths": len(key), "answer_key": key})
+
+        elif args.cmd == "mcp":
+            # The server opens the store per call; this one is only here because
+            # every other subcommand needs it.
+            store.close()
+            return mcp.serve(mcp.Context(db=args.db, root=root, check_command=args.check))
 
         elif args.cmd == "backtest":
             horizon = int(args.horizon_days * 86400)

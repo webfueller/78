@@ -60,6 +60,45 @@ workbench --db wb.db --root repo undo c_e56a27017ad6dd3d
 The bytes are back, the tests pass again, and the log still holds every version
 of what was almost done.
 
+## As tools an agent can call
+
+The loop above is the same one an agent should be driving, so it is also an MCP
+server — JSON-RPC over stdio, standard library only, no dependencies.
+
+```json
+{
+  "mcpServers": {
+    "workbench": {
+      "command": "workbench",
+      "args": ["--db", "/path/to/wb.db", "--root", "/path/to/repo",
+               "mcp", "--check", "pytest -q"]
+    }
+  }
+}
+```
+
+Eight tools: `status`, `observe`, `propose`, `commit`, `undo`, `run_checks`,
+`score`, `learn_from_git`. The shape of the contract is the point:
+
+- **`propose` writes nothing.** It returns the plans, what each would touch, and
+  the risk numbers. An agent is meant to show that to a human.
+- **`commit` is the only call that touches the filesystem.** It takes a branch
+  `propose` produced, and it is the call a host should be prompting about.
+- **`undo` puts the bytes back** and reports whether the disk now agrees.
+
+Two things the agent cannot choose, both fixed when the server starts:
+
+**The root.** No tool takes a directory argument — there is a test that reads
+every schema and fails if one appears. An agent that can pick its own root is not
+sandboxed by this server.
+
+**The check command.** `workbench_run_checks` takes no arguments at all. Wiring a
+command string through from the model would make this a shell with extra steps.
+
+Refusals come back as tool errors with the reason in them rather than as
+protocol failures, because "I refused to overwrite a file you edited" is
+something a model can read and act on.
+
 ## What it refuses
 
 **A file somebody edited behind its back.** Before writing anything, a commit
@@ -148,7 +187,8 @@ which is a different and more defensible claim.
 python3 -m unittest discover -s tests -p "test_workbench.py"
 ```
 
-26 tests, plus 10 in `test_churn.py` for the risk model and the git import. The
-interesting ones are the failures: a write that dies half way (neither disk nor
-log moves), a file edited behind its back (refused, work untouched), and four
-ways a path might try to leave the room.
+26 tests, plus 10 in `test_churn.py` for the risk model and the git import and
+16 in `test_mcp.py` for the agent-facing server. The interesting ones are the
+failures: a write that dies half way (neither disk nor log moves), a file edited
+behind its back (refused, work untouched), and four ways a path might try to
+leave the room.
