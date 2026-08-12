@@ -3,25 +3,19 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "preflight"
-version = "0.2.0"
-description = "Rehearse the week before you live it."
+name = "rehearsal"
+version = "0.1.0"
+description = "Let an agent rehearse, then commit — with a receipt and an undo."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 dependencies = []
 
 [project.scripts]
-preflight = "preflight.cli:main"
-workbench = "workbench.cli:main"
+rehearsal = "rehearsal.cli:main"
 
 [tool.setuptools]
-# One kernel, two domains, one direction: `preflight` and `workbench` import
-# `rehearsal` and never the reverse, and they do not import each other.
-# tests/test_rehearsal.py fails the build if the kernel grows a dependency on a
-# domain, so lifting it into its own distribution stays a move and a five-line
-# pyproject, whenever that is worth doing.
-packages = ["preflight", "rehearsal", "workbench"]
-
-[tool.setuptools.package-data]
-preflight = ["web/*"]
+# The engine, and only the engine. Everything built on it lives in domains/ with
+# its own pyproject and depends on this one -- so `pip install rehearsal` gets a
+# log, a fork, a receipt and an undo, and no opinions about mail.
+packages = ["rehearsal"]

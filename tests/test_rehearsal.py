@@ -18,7 +18,9 @@ import sys
 import tempfile
 import unittest
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, ROOT_DIR)                       # the engine
+sys.path.insert(0, os.path.join(ROOT_DIR, "domains"))  # what is built on it
 
 import rehearsal
 from rehearsal import Kernel, Projection
@@ -26,7 +28,7 @@ from rehearsal.futures import count_distribution, enumerate_futures
 from rehearsal.store import TRUNK, EventStore, StoreError
 
 HOUR = 3600
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = ROOT_DIR
 
 
 # --------------------------------------------------------------- a tiny domain

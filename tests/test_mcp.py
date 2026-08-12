@@ -18,7 +18,9 @@ import sys
 import tempfile
 import unittest
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, ROOT_DIR)                       # the engine
+sys.path.insert(0, os.path.join(ROOT_DIR, "domains"))  # what is built on it
 
 from workbench import mcp, observe
 

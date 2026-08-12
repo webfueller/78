@@ -1,6 +1,7 @@
 # The kernel
 
-`rehearsal` is the part of this repository that is not about email.
+`rehearsal` is the engine, and as of now the product. This document is the
+contract; [the README](../README.md) is the front door.
 
 An agent that takes irreversible actions on someone's behalf needs six things,
 and none of them are the actions: a log of what it saw, a fork to try things in,
@@ -15,8 +16,9 @@ scoring change reaches that, because the problem is the stock, not the sort. The
 machinery underneath does not decay: every agent action needs a preview,
 forever.
 
-So it is now its own package, with its own tests, and a test that fails if it
-ever learns what product it is serving.
+So it is its own package and its own distribution — `pip install rehearsal` gets
+a log, a fork, a receipt and an undo, and no opinions about mail — with its own
+tests, and a test that fails if it ever learns what is built on top of it.
 
 ## The six parts
 
@@ -28,9 +30,10 @@ ever learns what product it is serving.
 | `ledger` | claims with resolvers and due dates, scored against a leave-one-out base rate |
 | `preferences` | scoring weights fitted to what was actually committed, and refused when unearned |
 | `futures` | exact enumeration of what could happen (Poisson binomial over counts) |
+| `audit` | what happened, in a form a person can read — and a read-only CLI |
 
-Everything else in `preflight/` is a domain: mail, meetings, money, and the
-plans and predictors that go with them.
+Everything in `domains/` is built on that: `workbench` (an agent editing files)
+and `preflight` (the mail twin this was carved out of).
 
 ## What a domain has to bring
 
