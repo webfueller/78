@@ -153,11 +153,40 @@ admin path.
 exactly the part that does not come true, and the receipt compares against that
 hash and says so.
 
-**The chain is not a signature.** Recomputing detects a rewritten payload and a
-deleted event; each branch also carries a count and a head hash, so a truncated
-tail is caught. Someone with write access to the file can update both. A signed
-head anchor would close it, and until that exists the honest claim is the one in
-this paragraph.
+**The chain alone proves things only to itself.** Recomputing detects a rewritten
+payload and a deleted event — but somebody who rewrites a payload and then
+recomputes every hash after it produces a chain that verifies, and whoever can
+write the events table can write the checkpoints table in the same breath.
+
+So the head also goes where the log cannot reach:
+
+```bash
+rehearsal --db wb.db anchor --init --key ~/.config/rehearsal.key
+export REHEARSAL_ANCHOR_KEY=~/.config/rehearsal.key   # that is the whole setup
+```
+
+Every commit now stamps `(branch, count, head hash, time)` into an append-only
+file, authenticated with a key held outside the database. Forging history needs
+the key as well as write access. `rehearsal verify` checks both and exits 2 if
+either disagrees:
+
+```console
+$ rehearsal --db wb.db verify
+{ "chain_ok": true,            ← the forgery is invisible to the chain
+  "anchor_ok": false,
+  "anchor_why": "trunk has the same number of events as the anchor but a
+                 different head: history has been rewritten" }
+```
+
+Two limits, stated rather than left to be discovered. It is **not a public-key
+signature** — HMAC is symmetric, so the anchor proves integrity to whoever holds
+the key and does not let a third party verify your log without it; the stdlib has
+no Ed25519 and this package has no dependencies. And it does **not survive a
+matched rollback**: truncate the log *and* remove the anchor lines written after
+that point, and what remains verifies. Keep a copy of the anchor somewhere the
+agent cannot write and that becomes visible. There is a test that performs the
+rollback and asserts it goes undetected, so nobody has to take the paragraph's
+word for it.
 
 **An undo is only as reversible as the action.** Files can be put back. A sent
 message cannot, which is why nothing here sends one yet.
@@ -174,15 +203,17 @@ rehearsal/          the engine — pip install rehearsal
   preferences.py    weights fitted to real choices, and the honesty gate
   futures.py        exact enumeration of what could happen
   audit.py          what happened, in a form a person can read
-  cli.py            read-only: audit, verify, branches, log
+  anchor.py         the head, stamped where the log cannot reach it
+  cli.py            read-only: audit, verify, anchor, branches, log
 
 domains/            what is built on it — pip install -e domains
   workbench/        an agent editing files; MCP server; the risk model
   preflight/        the mail twin, and where this came from
 
-tests/              191 tests, ~190s
+tests/              210 tests, ~160s
   test_rehearsal.py   the engine, driven by a domain that is not mail
   test_audit.py       the account, and whether it is true
+  test_anchor.py      the forgery the chain cannot see, performed and caught
   test_workbench.py   the first commit that leaves the database
   test_churn.py       the risk numbers, and whether they know anything
   test_mcp.py         the agent-facing server, and what it will not allow

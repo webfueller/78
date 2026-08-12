@@ -69,10 +69,17 @@ class Commits:
         preferences: Optional[Preferences] = None,
         undo_window: int = UNDO_WINDOW,
         execute: Optional[Callable[[EventStore, List[E.Event]], None]] = None,
+        anchor=None,
     ):
         self.projection = projection
         self.preferences = preferences
         self.undo_window = undo_window
+        # Stamped after the transaction closes, never inside it: an anchor is a
+        # statement about a log that already exists, and one written for a commit
+        # that then rolled back would be a lie in the one file whose job is to be
+        # true. A commit that lands without its stamp shows up as "behind", which
+        # is visible and recoverable.
+        self.anchor = anchor
         # Where a domain hangs its side effects. Nothing calls it yet -- this
         # product writes no mail -- and the signature is here so that when
         # something does, it runs inside the same transaction as the promotion
@@ -81,6 +88,13 @@ class Commits:
 
     def _hash(self, store: EventStore, branch: str = TRUNK) -> str:
         return self.projection.fold(store.read(branch)).state_hash()
+
+    def _stamp(self, store: EventStore) -> bool:
+        """Record the new head outside the log, if an anchor is configured."""
+        if self.anchor is None:
+            return False
+        self.anchor.record(store, TRUNK)
+        return True
 
     def commit(self, store: EventStore, branch: str, at_ts: Optional[int] = None) -> dict:
         """Execute a rehearsed plan for real. All of it, or none of it.
@@ -171,8 +185,11 @@ class Commits:
                 if self.preferences is not None else None
             )
 
+        stamped = self._stamp(store)
+
         return {
             "learned_from": chosen_for,
+            "anchored": stamped,
             "commit_id": cid,
             "branch": branch,
             "actions": len(actions),
@@ -211,6 +228,9 @@ class Commits:
             payload={"commit_id": cid},
         )
         after = self._hash(store)
+        # An undo is history too. Leaving it unstamped would make the log look
+        # like it had grown past its anchor for no reason anyone could check.
+        self._stamp(store)
         return {
             "commit_id": cid,
             "restored": after == c["receipt"]["state_before"],

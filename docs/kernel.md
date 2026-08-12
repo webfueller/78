@@ -3,10 +3,11 @@
 `rehearsal` is the engine, and as of now the product. This document is the
 contract; [the README](../README.md) is the front door.
 
-An agent that takes irreversible actions on someone's behalf needs six things,
-and none of them are the actions: a log of what it saw, a fork to try things in,
-an exact account of what could happen, a receipt, an undo, and a record of its
-own claims that reality later judged. Those were built here for a mailbox. They
+An agent that takes irreversible actions on someone's behalf needs a handful of
+things, and none of them are the actions: a log of what it saw, a fork to try
+things in, an exact account of what could happen, a receipt, an undo, a record of
+its own claims that reality later judged, and a way for somebody to check all of
+that afterwards. Those were built here for a mailbox. They
 were never about mailboxes.
 
 Three experiments say why this is the interesting half.
@@ -20,7 +21,7 @@ So it is its own package and its own distribution — `pip install rehearsal` ge
 a log, a fork, a receipt and an undo, and no opinions about mail — with its own
 tests, and a test that fails if it ever learns what is built on top of it.
 
-## The six parts
+## The parts
 
 | module | what it owns |
 |---|---|
@@ -31,6 +32,7 @@ tests, and a test that fails if it ever learns what is built on top of it.
 | `preferences` | scoring weights fitted to what was actually committed, and refused when unearned |
 | `futures` | exact enumeration of what could happen (Poisson binomial over counts) |
 | `audit` | what happened, in a form a person can read — and a read-only CLI |
+| `anchor` | the head, stamped outside the log, so a rewrite cannot hide behind recomputed hashes |
 
 Everything in `domains/` is built on that: `workbench` (an agent editing files)
 and `preflight` (the mail twin this was carved out of).
@@ -133,9 +135,18 @@ moment they happen, this kernel should not be asked to govern one.
 **Concurrency across machines.** One SQLite file, `BEGIN IMMEDIATE`, one writer
 at a time. That is correct and it is not distributed.
 
-**Signing.** The chain detects in-place edits and mid-chain deletions. It does
-not survive an adversary with write access to the file, because there is no
-anchor outside the events table. A signed head hash would close it.
+**Public verifiability.** The head is now anchored: `anchor.py` stamps
+`(branch, count, head hash, time)` into an append-only file authenticated with an
+HMAC key held outside the database, which closes the rewrite-and-recompute attack
+the chain could not see. What it does not give you is a signature a *third party*
+can check without your key — HMAC is symmetric. `_mac` is the one function that
+would change if that were worth taking a dependency for.
+
+**Rollback with a matching anchor.** Truncate the log and remove the anchor lines
+written after that point, and the remainder verifies. Detecting it needs memory
+outside both files — a backup of the anchor, or a witness that remembers the
+count. `tests/test_anchor.py` performs the attack and asserts it is missed, so
+the limit stays honest.
 
 ## Running its tests
 

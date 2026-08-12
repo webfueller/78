@@ -143,11 +143,38 @@ def claims(store: EventStore) -> dict:
     return out
 
 
-def integrity(store: EventStore, branch: str = TRUNK) -> dict:
+def integrity(store: EventStore, branch: str = TRUNK,
+              db_path: Optional[str] = None, key_path: Optional[str] = None) -> dict:
+    """Whether the record holds, and how strong the answer is.
+
+    With `db_path` this also checks the anchor, and says which of the two modes
+    it is in — because "verified" means something different when the only thing
+    the log was checked against was itself.
+    """
+    if db_path is None:
+        db_path = getattr(store, "path", None)
+
+    if db_path:
+        from . import anchor as _anchor
+        out = _anchor.check(store, db_path, branch=branch, key_path=key_path)
+        return {
+            "branch": branch,
+            "events": out["events"],
+            "ok": bool(out["chain_ok"]) and out.get("anchor_ok") is not False,
+            "why": out["chain_why"] or (out.get("anchor_why", "")
+                                        if out.get("anchor_ok") is False else ""),
+            "mode": out.get("mode", "chain only"),
+            "anchor_ok": out.get("anchor_ok"),
+            "anchor_why": out.get("anchor_why", ""),
+            "anchor_behind": out.get("anchor_behind", False),
+        }
+
     try:
-        return {"branch": branch, "events": store.verify(branch), "ok": True, "why": ""}
+        return {"branch": branch, "events": store.verify(branch), "ok": True,
+                "why": "", "mode": "chain only", "anchor_ok": None, "anchor_why": ""}
     except StoreError as exc:
-        return {"branch": branch, "events": 0, "ok": False, "why": str(exc)}
+        return {"branch": branch, "events": 0, "ok": False, "why": str(exc),
+                "mode": "chain only", "anchor_ok": None, "anchor_why": ""}
 
 
 def summary(store: EventStore, branch: str = TRUNK, limit: Optional[int] = None) -> dict:
@@ -217,12 +244,21 @@ def render_text(
     elif c.get("total"):
         lines.append(f"Predictions: {c['total']} made, none settled yet.")
 
-    i = data["integrity"]
-    lines.append(
-        f"Chain: {i['events']} events verified." if i["ok"]
-        else f"Chain: FAILED — {i['why']}"
-    )
+    lines.append(_integrity_line(data["integrity"]))
     return "\n".join(lines)
+
+
+def _integrity_line(i: dict) -> str:
+    if not i["ok"]:
+        return f"Chain: FAILED — {i['why']}"
+    mode = i.get("mode", "chain only")
+    line = f"Chain: {i['events']} events verified ({mode})."
+    if i.get("anchor_behind") and i.get("anchor_why"):
+        line += f" {i['anchor_why']}."
+    elif mode == "chain only":
+        line += (" Without an anchor this detects edits and deletions, not a "
+                 "rewrite that recomputes the hashes after it.")
+    return line
 
 
 def _nowish() -> int:
@@ -291,7 +327,21 @@ def render_html(
         claims_line = "none recorded."
 
     i = data["integrity"]
-    chain = (f"{i['events']} events verified" if i["ok"] else f"FAILED — {e(i['why'])}")
+    chain = (f"{i['events']} events verified, {e(i.get('mode', 'chain only'))}"
+             if i["ok"] else f"FAILED — {e(i['why'])}")
+    guarantee = (
+        "Recomputing every hash detects a rewritten payload or a deleted event, and "
+        "the branch carries a count and a head hash so a truncated tail is caught "
+        "too. The head is also stamped into an append-only file authenticated with a "
+        "key held outside the database, so a rewrite that recomputes the hashes after "
+        "it is caught as well — forging this history needs the key, not just write "
+        "access."
+        if i.get("anchor_ok") is not None else
+        "Recomputing every hash detects a rewritten payload or a deleted event; the "
+        "branch also carries a count and a head hash, so a truncated tail is caught. "
+        "It is not a signature — someone with write access to the file can rewrite "
+        "history and update both. Configure an anchor to close that."
+    )
 
     return f"""<!doctype html>
 <html lang=en><head><meta charset=utf-8>
@@ -333,9 +383,6 @@ footer b {{ color:var(--fg); font-weight:600 }}
 {''.join(rows) or '<p class=q>Nothing has been committed on this branch.</p>'}
 <footer>
 <p><b>Predictions.</b> {e(claims_line)}</p>
-<p><b>Chain.</b> {chain}. Recomputing every hash detects a rewritten payload or a
-deleted event; the branch also carries a count and a head hash, so a truncated
-tail is caught too. It is not a signature — someone with write access to the file
-can update both.</p>
+<p><b>Chain.</b> {chain}. {guarantee}</p>
 </footer>
 </main></body></html>"""

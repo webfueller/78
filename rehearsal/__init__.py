@@ -28,6 +28,7 @@ from __future__ import annotations
 
 from typing import Dict, Mapping, Optional, Type
 
+from .anchor import Anchor, AnchorError
 from .commits import UNDO_WINDOW, Commits, already_promoted, promotable
 from .events import (
     ACTOR_AGENT,
@@ -50,7 +51,8 @@ from .store import TRUNK, EventStore, StoreError
 __version__ = "0.1.0"
 
 __all__ = [
-    "ACTOR_AGENT", "ACTOR_USER", "ACTOR_WORLD", "Commits", "Event", "EventStore",
+    "ACTOR_AGENT", "ACTOR_USER", "ACTOR_WORLD", "Anchor", "AnchorError",
+    "Commits", "Event", "EventStore",
     "GENESIS", "Kernel", "LEDGER", "Ledger", "PREFERENCES", "Preferences",
     "Projection", "REAL_ACTORS", "Resolver", "SIM_PREFIX", "StoreError", "TRUNK",
     "UNDO_WINDOW", "already_promoted", "brier", "canonical", "count_distribution",
@@ -67,11 +69,13 @@ class Kernel:
         resolvers: Optional[Mapping[str, Resolver]] = None,
         prior: Optional[Dict[str, float]] = None,
         undo_window: int = UNDO_WINDOW,
+        anchor=None,
     ):
         self.projection = projection
         self.ledger = Ledger(projection, resolvers or {})
         self.preferences = Preferences(prior) if prior else None
-        self.commits = Commits(projection, self.preferences, undo_window=undo_window)
+        self.commits = Commits(projection, self.preferences, undo_window=undo_window,
+                               anchor=anchor)
 
     def project(self, evs, include_simulated: bool = True) -> Projection:
         return self.projection.fold(evs, include_simulated=include_simulated)

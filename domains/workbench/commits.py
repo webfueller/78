@@ -24,6 +24,7 @@ from __future__ import annotations
 
 from typing import List, Optional, Sequence
 
+from rehearsal.anchor import Anchor
 from rehearsal.commits import Commits
 from rehearsal.events import Event
 from rehearsal.store import TRUNK, EventStore, StoreError
@@ -61,13 +62,25 @@ def _executor(root: str):
     return execute
 
 
-def commit(store: EventStore, branch: str, root: str, at_ts: Optional[int] = None) -> dict:
-    """Promote a rehearsed change set, and put it on disk, atomically."""
-    engine = Commits(
+def _engine(store: EventStore, root: Optional[str] = None) -> Commits:
+    """The kernel's commit machinery, with this workbench's side effect attached.
+
+    The anchor comes from the environment rather than a flag: set
+    REHEARSAL_ANCHOR_KEY and every commit stamps its new head outside the log,
+    with nothing else to remember. Unset, everything works exactly as before and
+    `rehearsal verify` says which mode it is in.
+    """
+    return Commits(
         KERNEL.projection,
         KERNEL.preferences,
-        execute=_executor(root),
+        execute=_executor(root) if root else None,
+        anchor=Anchor.from_env(store.path),
     )
+
+
+def commit(store: EventStore, branch: str, root: str, at_ts: Optional[int] = None) -> dict:
+    """Promote a rehearsed change set, and put it on disk, atomically."""
+    engine = _engine(store, root)
     receipt = engine.commit(store, branch, at_ts=at_ts)
     receipt["root"] = root
     receipt["files"] = sorted({
@@ -88,7 +101,7 @@ def undo(store: EventStore, commit_id: str, root: str, at_ts: Optional[int] = No
     never claims a restoration that did not reach the disk.
     """
     with store.transaction():
-        out = KERNEL.undo(store, commit_id, at_ts=at_ts)
+        out = _engine(store).undo(store, commit_id, at_ts=at_ts)
         tree = Tree.fold(store.read(TRUNK))
         # The undone commit's own paths have to be named explicitly. Once the
         # projection stops applying them, a file the commit *created* is in
