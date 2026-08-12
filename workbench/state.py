@@ -20,7 +20,8 @@ class Tree(Projection):
     def __init__(self) -> None:
         super().__init__()
         self.files: Dict[str, dict] = {}      # path -> {"sha256", "content"}
-        self.writes: List[dict] = []          # every edit, in order
+        self.owned: set = set()               # paths this workbench can restore
+        self.writes: List[dict] = []          # every edit, in order, bytes or not
         self.checks: List[dict] = []          # every time the checks ran
 
     # ------------------------------------------------------------------ shape
@@ -42,11 +43,19 @@ class Tree(Projection):
 
         if k in (E.FILE_OBSERVED, E.FILE_WRITTEN):
             self.files[ev.entity] = {"sha256": p["sha256"], "content": p["content"]}
+            self.owned.add(ev.entity)
             if k == E.FILE_WRITTEN:
                 self.writes.append({"ts": ev.ts, "path": ev.entity, "kind": k})
 
         elif k == E.FILE_DELETED:
             self.files.pop(ev.entity, None)
+            self.owned.add(ev.entity)
+            self.writes.append({"ts": ev.ts, "path": ev.entity, "kind": k})
+
+        elif k == E.FILE_TOUCHED:
+            # Evidence, not bytes. Deliberately not added to `owned`: restoring a
+            # path whose contents were never recorded would mean deleting it,
+            # which is the opposite of an undo.
             self.writes.append({"ts": ev.ts, "path": ev.entity, "kind": k})
 
         elif k == E.CHECK_REPORTED:
@@ -55,13 +64,15 @@ class Tree(Projection):
     # ----------------------------------------------------------------- asking
 
     def managed(self) -> List[str]:
-        """Every path the log has ever touched, present or deleted.
+        """Every path this workbench holds the bytes for, present or deleted.
 
         Undo has to be able to delete a file it created, so "what this workbench
-        is responsible for" cannot be read off the current tree alone.
+        is responsible for" cannot be read off the current tree alone -- but it
+        also cannot be read off the edit history, which includes imported git
+        touches whose contents were never recorded. Restoring one of those would
+        mean deleting a file the workbench has no version of.
         """
-        seen = {w["path"] for w in self.writes} | set(self.files)
-        return sorted(seen)
+        return sorted(self.owned | set(self.files))
 
     def rewritten_between(self, path: str, after: int, until: int) -> bool:
         return any(after < w["ts"] <= until and w["path"] == path for w in self.writes)

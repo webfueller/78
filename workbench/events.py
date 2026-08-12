@@ -24,5 +24,15 @@ FILE_WRITTEN = "file.written"
 FILE_DELETED = "file.deleted"
 CHECK_REPORTED = "check.reported"
 
+# History without bytes. A repository's git log says this file was edited then,
+# and reconstructing every historical version to go with it would cost thousands
+# of `git show` calls to answer a question that only needs the timestamps. So a
+# touch is evidence for the risk model and nothing else: it is never a restore
+# point, and the workbench will not claim it can put one back.
+FILE_TOUCHED = "file.touched"
+
 EDITS = frozenset({FILE_WRITTEN, FILE_DELETED})
-DOMAIN_KINDS = frozenset({FILE_OBSERVED, FILE_WRITTEN, FILE_DELETED, CHECK_REPORTED})
+OWNS = frozenset({FILE_OBSERVED, FILE_WRITTEN, FILE_DELETED})
+DOMAIN_KINDS = frozenset({
+    FILE_OBSERVED, FILE_WRITTEN, FILE_DELETED, FILE_TOUCHED, CHECK_REPORTED,
+})

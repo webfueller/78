@@ -86,13 +86,32 @@ mail product cannot both send the same message.
 Two resolvers, both answerable from the log alone:
 
 - `check_fails` — did the checks go red in the window after this landed?
-- `rewritten_within` — did this file need touching again soon after? Churn is the
-  honest proxy for "the edit was not right".
+- `rewritten_within` — did this file need touching again soon after? Churn is a
+  proxy for "the edit was not right", and experiment 004 established that it is a
+  contaminated one: it fires whenever a file is busy, not only when an edit was
+  wrong.
 
 `workbench check` runs your command, records the verdict, and settles every claim
 whose due date has passed. `workbench score` prints the Brier score against a
 leave-one-out base rate. The risk numbers are not decoration: if they never beat
 the base rate, they are theatre, and the scoreboard is where that shows up.
+
+**One of the two has been measured.** [Experiment 004](experiment-004.md)
+backtested `rewritten_within` against two real repositories with fourteen years
+of history and five generated ones with known answer keys: knowing which file is
+being edited is worth a +3.5% median off the Brier score, up to +16.7%, positive
+in 19 of 21 arms. It also found that the label measures *activity* at least as
+much as wrongness — so the preview may say "files like this get revised about
+this often" and may not say "this edit is probably wrong".
+
+`check_fails` is **not** measured, because neither repository carries a history
+of check outcomes. It is the number the score weights most heavily and it is
+still a guess.
+
+```bash
+workbench --db wb.db --root . git-import      # learn from your own history
+workbench --db wb.db backtest --horizon-days 14
+```
 
 ## The thing that had to be got right
 
@@ -129,6 +148,7 @@ which is a different and more defensible claim.
 python3 -m unittest discover -s tests -p "test_workbench.py"
 ```
 
-26 tests. The interesting ones are the failures: a write that dies half way
-(neither disk nor log moves), a file edited behind its back (refused, work
-untouched), and four ways a path might try to leave the room.
+26 tests, plus 10 in `test_churn.py` for the risk model and the git import. The
+interesting ones are the failures: a write that dies half way (neither disk nor
+log moves), a file edited behind its back (refused, work untouched), and four
+ways a path might try to leave the room.

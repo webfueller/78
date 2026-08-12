@@ -10,7 +10,7 @@ from typing import List, Optional
 
 from rehearsal.store import TRUNK, EventStore, StoreError
 
-from . import checks, commits, disk, observe, propose
+from . import backtest, checks, commits, disk, gitlog, observe, propose, synthetic
 from .state import Tree
 
 
@@ -60,6 +60,19 @@ def main(argv=None) -> int:
     p.add_argument("--command", required=True)
     p.add_argument("--timeout", type=int, default=checks.TIMEOUT)
 
+    p = sub.add_parser("git-import", help="learn from this repository's own history")
+    p.add_argument("--limit", type=int)
+    p.add_argument("--ref", default="HEAD")
+
+    p = sub.add_parser("seed-repo", help="a generated history with a known answer key")
+    p.add_argument("--days", type=int, default=400)
+    p.add_argument("--paths", type=int, default=24)
+    p.add_argument("--seed", type=int, default=3)
+
+    p = sub.add_parser("backtest", help="does the preview know anything?")
+    p.add_argument("--predictor", default=None, help="omit to compare all of them")
+    p.add_argument("--horizon-days", type=float, default=7.0)
+
     args = ap.parse_args(argv)
     root = os.path.abspath(args.root)
     store = EventStore(args.db)
@@ -93,6 +106,20 @@ def main(argv=None) -> int:
 
         elif args.cmd == "check":
             out(checks.run(store, root, args.command, timeout=args.timeout))
+
+        elif args.cmd == "git-import":
+            out(gitlog.ingest(store, root, limit=args.limit, ref=args.ref))
+
+        elif args.cmd == "seed-repo":
+            key = synthetic.seed_repo(store, days=args.days, paths=args.paths, seed=args.seed)
+            out({"paths": len(key), "answer_key": key})
+
+        elif args.cmd == "backtest":
+            horizon = int(args.horizon_days * 86400)
+            if args.predictor:
+                out(backtest.run(store, predictor=args.predictor, horizon=horizon))
+            else:
+                out(backtest.compare(store, horizon=horizon))
 
     except (StoreError, ValueError, disk.DiskError) as exc:
         print(f"error: {exc}", file=sys.stderr)

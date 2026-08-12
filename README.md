@@ -119,7 +119,7 @@ scoreboard can be checked against an answer key.
 Standard library only, no dependencies. Tested on Python 3.11.
 
 ```bash
-python3 -m unittest discover -s tests      # 153 tests, ~135s
+python3 -m unittest discover -s tests      # 163 tests, ~190s
 
 export DB=/tmp/preflight.db
 A="python3 -m preflight.cli --db $DB"
@@ -203,6 +203,15 @@ Same kernel, different world: no mail, no calendar, no money. Proposals live on 
 fork until you read them, the commit refuses if a file changed behind its back,
 and the undo restores from the log rather than a backup.
 [`docs/workbench.md`](docs/workbench.md) has the walkthrough and the limits.
+
+Its risk numbers have been backtested against two real repositories with fourteen
+years of history each, plus a generated one with a known answer key:
+[experiment 004](docs/experiment-004.md). Knowing which file is being edited is
+worth a **+3.5% median** off the Brier score of a model that knows only the
+repository, up to +16.7%, positive in 19 of 21 arms — real, and about a third the
+size of the mail product's counterparty model. The same experiment found that the
+directory beats the file on real repositories, which is why the shipped model
+shrinks through both.
 
 ---
 
@@ -379,6 +388,10 @@ workbench/          a second domain: an agent editing files
   commits.py        disk and log move together, or neither moves
   propose.py        edits become plans, risk measured from this repo's history
   checks.py         run the checks, record the verdict, settle the claims
+  churn.py          the risk model — one copy, used by the preview and the backtest
+  backtest.py       walk a repository's history, predict, score against what happened
+  gitlog.py         a repository's own history, as evidence
+  synthetic.py      a generated repository with a known answer key
   observe.py        telling the log what is on the disk, deliberately
   cli.py
 
@@ -389,9 +402,10 @@ tests/test_preferences.py the learned weights
 tests/test_qa.py         what a hostile review found
 tests/test_rehearsal.py  the kernel, driven by a domain that is not mail
 tests/test_workbench.py  the first commit that leaves the database
+tests/test_churn.py      the risk numbers, and whether they know anything
 ```
 
-153 tests. `python3 -m unittest discover -s tests`
+163 tests. `python3 -m unittest discover -s tests`
 
 **Why it is split.** The consumer value decays — 5–16% of week one once the
 backlog is clear ([002](docs/experiment-002.md)), and no scoring change reaches

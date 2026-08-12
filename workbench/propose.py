@@ -19,8 +19,9 @@ from rehearsal import futures as F
 from rehearsal.events import canonical
 from rehearsal.store import TRUNK, EventStore
 
-from . import disk
+from . import churn, disk
 from . import events as E
+from .churn import CHURN_HORIZON
 from .kernel import KERNEL
 from .scoring import features
 from .state import Tree
@@ -85,6 +86,19 @@ def risk(tree: Tree, path: str) -> float:
         n += 1
         fails += 0 if after[0]["ok"] else 1
     return (fails + PRIOR_FAILS) / (n + PRIOR_N)
+
+
+def churn_risk(tree: Tree, path: str, at: Optional[int] = None,
+               horizon: int = CHURN_HORIZON) -> float:
+    """How likely this file is to need touching again, soon.
+
+    A different question from `risk`, and it used to be answered with the same
+    number -- which was wrong in a way nothing would have caught, because the
+    probability that a file breaks the build is not the probability that it needs
+    revising. The model is `churn.estimate`, which is the same code
+    `experiment-004` scored and the only implementation there is.
+    """
+    return churn.estimate(tree, path, at=at, horizon=horizon)
 
 
 def background_risk(tree: Tree) -> float:
@@ -183,9 +197,10 @@ def rehearse(
             "resolver": "check_fails", "params": {"plan": plan.id}, "p": red,
             "describe": "the checks go red after this",
         }]
-        for e, r in zip(plan.edits, risks):
+        churn = [churn_risk(tree, e.path, at=now) for e in plan.edits]
+        for e, c in zip(plan.edits, churn):
             claims.append({
-                "resolver": "rewritten_within", "params": {"path": e.path}, "p": r,
+                "resolver": "rewritten_within", "params": {"path": e.path}, "p": c,
                 "describe": f"{e.path} needs touching again",
             })
 
@@ -215,7 +230,7 @@ def rehearse(
         expected = {
             "applied": len(plan.edits),
             "check_risk": red,
-            "churn": round(sum(risks), 3),
+            "churn": round(sum(churn), 3),
         }
         plans_out.append({
             "id": plan.id,
