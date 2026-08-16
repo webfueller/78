@@ -1,0 +1,59 @@
+From Ana Reyes <ana@example.net> Thu Jun 11 21:26:17 2026
+Message-ID: <m0>
+Date: Thu, 11 Jun 2026 21:26:17 -0000
+From: Ana Reyes <ana@example.net>
+To: me@example.net
+Subject: Q3 numbers
+
+Body of message 0.
+
+From me@example.net Fri Jun 12 21:26:17 2026
+Message-ID: <m1>
+Date: Fri, 12 Jun 2026 21:26:17 -0000
+From: me@example.net
+To: Ana Reyes <ana@example.net>
+Subject: Re: Q3 numbers
+References: <m0>
+
+Body of message 1.
+
+From Ana Reyes <ana@example.net> Sat Jun 13 21:26:17 2026
+Message-ID: <m2>
+Date: Sat, 13 Jun 2026 21:26:17 -0000
+From: Ana Reyes <ana@example.net>
+To: me@example.net
+Subject: Q3 numbers
+References: <m0>
+
+Body of message 2.
+
+From me@example.net Sun Jun 14 21:26:17 2026
+Message-ID: <m3>
+Date: Sun, 14 Jun 2026 21:26:17 -0000
+From: me@example.net
+To: Ana Reyes <ana@example.net>
+Subject: Re: Q3 numbers
+References: <m0>
+
+Body of message 3.
+
+From Ana Reyes <ana@example.net> Mon Jun 15 21:26:17 2026
+Message-ID: <m4>
+Date: Mon, 15 Jun 2026 21:26:17 -0000
+From: Ana Reyes <ana@example.net>
+To: me@example.net
+Subject: Q3 numbers
+References: <m0>
+
+Body of message 4.
+
+From me@example.net Tue Jun 16 21:26:17 2026
+Message-ID: <m5>
+Date: Tue, 16 Jun 2026 21:26:17 -0000
+From: me@example.net
+To: Ana Reyes <ana@example.net>
+Subject: Re: Q3 numbers
+References: <m0>
+
+Body of message 5.
+

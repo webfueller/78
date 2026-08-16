@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "takeback"
+version = "0.1.0"
+description = "Your agent can't touch anything until you've seen it — and you can take back anything it did."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+dependencies = []
+
+[project.scripts]
+takeback = "takeback.cli:main"
+
+[tool.setuptools]
+# The engine, and only the engine. Everything built on it lives in domains/ with
+# its own pyproject and depends on this one -- so `pip install takeback` gets a
+# log, a fork, a receipt and an undo, and no opinions about mail.
+packages = ["takeback"]

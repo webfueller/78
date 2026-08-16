@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "takeback-domains"
+version = "0.2.0"
+description = "Two things built on takeback: a workbench for file edits, and a mail twin."
+requires-python = ">=3.9"
+license = { text = "MIT" }
+dependencies = ["takeback"]
+
+[project.scripts]
+workbench = "workbench.cli:main"
+preflight = "preflight.cli:main"
+
+[tool.setuptools]
+packages = ["workbench", "preflight"]
+
+[tool.setuptools.package-data]
+preflight = ["web/*"]

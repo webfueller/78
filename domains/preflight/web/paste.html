@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Preflight — rehearse one thread</title>
+<style>
+:root {
+  --ground:#0C1720; --panel:#12212C; --sunken:#091219;
+  --rule:#21384A; --rule-soft:#1A2C3A;
+  --ink:#D9E4E9; --ink-mid:#A8BCC6; --ink-dim:#7B95A3;
+  --real:#E8A33D; --sim:#61B7C5; --dead:#C4614C; --dead-ink:#DC7B63; --good:#7FB069;
+  --display:"Iowan Old Style",Charter,Georgia,serif;
+  --util:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+/* `display:flex` on a component beats the user-agent rule for [hidden], so a
+   hidden panel keeps rendering. Every hidden section in this page is a flex or
+   grid container, so this is not a nicety. */
+[hidden]{display:none !important}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--display);
+  font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:68rem;margin:0 auto;padding:0 1.5rem 5rem;display:flex;flex-direction:column;gap:1.75rem}
+.k{font-family:var(--util);font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-dim);margin:0}
+h1{font-weight:400;font-size:clamp(1.9rem,4.6vw,2.7rem);line-height:1.08;letter-spacing:-.02em;
+  margin:0;max-width:19ch;text-wrap:balance}
+h1 span{color:var(--real)}
+h2{font-weight:400;font-size:1.05rem;margin:0;letter-spacing:-.01em}
+p{margin:0}
+.lede{color:var(--ink-mid);max-width:46ch}
+header{padding-top:3.5rem;display:flex;flex-direction:column;gap:1rem;
+  border-bottom:1px solid var(--rule);padding-bottom:2rem}
+.nav{display:flex;gap:1.5rem;align-items:baseline}
+a{color:var(--sim)}
+:focus-visible{outline:2px solid var(--sim);outline-offset:2px}
+.endpoint:focus{outline:none}
+.endpoint:focus-visible .hit{fill:none;stroke:var(--sim);stroke-width:1.5}
+@media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
+
+/* The header is a two-column pitch: what it does on the left, what it costs you
+   on the right. The promise lands before the textarea, not after it. */
+.pitch{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:2rem 3rem;align-items:start}
+@media (max-width:820px){.pitch{grid-template-columns:1fr;gap:1.5rem}}
+.gets{display:flex;flex-direction:column;gap:.55rem;margin:0;padding:0;list-style:none}
+.gets li{display:grid;grid-template-columns:1.1rem 1fr;gap:.6rem;color:var(--ink-mid);font-size:14.5px}
+.gets b{color:var(--ink);font-weight:400}
+.gets .m{font-family:var(--util);font-size:11px;color:var(--sim);padding-top:.18rem}
+
+.card{border:1px solid var(--rule);background:var(--panel);padding:1.1rem 1.2rem;
+  display:flex;flex-direction:column;gap:.9rem}
+.card.quiet{background:var(--sunken)}
+textarea{width:100%;min-height:12rem;resize:vertical;background:var(--sunken);color:var(--ink);
+  border:1px solid var(--rule);padding:.8rem .9rem;font-family:var(--util);font-size:12.5px;line-height:1.6}
+textarea[aria-invalid="true"]{border-color:var(--dead)}
+input{background:var(--sunken);color:var(--ink);border:1px solid var(--rule);
+  padding:.5rem .7rem;font-family:var(--util);font-size:12px;min-width:15rem}
+.controls{display:flex;flex-wrap:wrap;gap:.7rem;align-items:center}
+button{font:inherit;cursor:pointer}
+.go{border:1px solid var(--real);background:var(--real);color:#0C1720;padding:.5rem 1.1rem;
+  font-family:var(--util);font-size:11px;letter-spacing:.12em;text-transform:uppercase}
+.go[disabled]{opacity:.45;cursor:progress}
+.ghost{border:1px solid var(--rule);background:transparent;color:var(--ink-mid);
+  padding:.45rem .9rem;font-family:var(--util);font-size:11px;letter-spacing:.1em;text-transform:uppercase}
+.ghost:hover{border-color:var(--sim);color:var(--sim)}
+.link{background:none;border:none;color:var(--sim);font-family:var(--util);font-size:11px;
+  letter-spacing:.08em;text-transform:uppercase;padding:0;text-decoration:underline}
+
+.prog{height:3px;background:var(--sunken);border:1px solid var(--rule-soft);overflow:hidden;position:relative}
+.prog i{position:absolute;inset:0 auto 0 0;width:34%;background:var(--sim);animation:slide 1.15s ease-in-out infinite}
+@keyframes slide{0%{left:-34%}100%{left:100%}}
+@media (prefers-reduced-motion:reduce){.prog i{left:0;width:100%;opacity:.45}}
+
+.map{border:1px solid var(--rule);background:var(--panel);padding:.85rem .9rem .6rem;
+  display:flex;flex-direction:column;gap:.6rem}
+.maphead{display:flex;flex-wrap:wrap;gap:.2rem 1.1rem;align-items:baseline}
+.map-scroll{overflow-x:auto;overscroll-behavior-x:contain}
+svg#map{display:block;width:100%;height:auto}
+.endpoint{cursor:default}
+.endpoint .hit{fill:transparent;stroke:none}
+.legend{display:flex;flex-wrap:wrap;gap:.4rem 1.1rem;align-items:center;
+  border-top:1px solid var(--rule-soft);padding-top:.6rem}
+.key{display:inline-flex;align-items:center;gap:.45rem;font-family:var(--util);font-size:10px;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim)}
+.key::before{content:"";width:16px;height:2px;background:currentColor}
+.key.r{color:var(--real)}.key.s{color:var(--sim)}
+.key.d{color:var(--dead-ink)}
+.key.d::before{content:"▲";width:auto;height:auto;background:none;font-size:9px;line-height:1}
+.hint{color:var(--ink-dim);font-size:11px;font-family:var(--util);letter-spacing:.08em;text-transform:uppercase}
+
+.read{display:grid;grid-template-columns:repeat(auto-fit,minmax(8.5rem,1fr));gap:1px;
+  background:var(--rule);border:1px solid var(--rule)}
+.read div{background:var(--panel);padding:.7rem .8rem;display:flex;flex-direction:column;gap:.15rem}
+.read b{font-family:var(--util);font-size:17px;font-weight:400;color:var(--ink)}
+.thin{border-left:2px solid var(--real);padding:.15rem 0 .15rem 1rem;color:var(--ink-mid);font-size:14.5px;
+  max-width:78ch}
+.thin b{color:var(--real);font-weight:400}
+.err{color:var(--dead-ink);font-family:var(--util);font-size:12.5px;line-height:1.55}
+.err:not(:empty)::before{content:"▲ "}
+.privacy{color:var(--ink-dim);font-size:13.5px;max-width:78ch}
+.promise{display:flex;flex-direction:column;gap:.5rem;margin:0;padding:0;list-style:none}
+.promise li{display:grid;grid-template-columns:.9rem 1fr;gap:.6rem;color:var(--ink-mid);font-size:13.5px}
+.promise .m{font-family:var(--util);font-size:12px;color:var(--good);line-height:1.35}
+.promise b{color:var(--ink);font-weight:400}
+.stamp{display:inline-flex;align-items:center;gap:.45rem;border:1px solid var(--rule);
+  color:var(--good);font-family:var(--util);font-size:10px;letter-spacing:.11em;text-transform:uppercase;
+  padding:.25rem .6rem}
+.stack{display:flex;flex-direction:column;gap:1.5rem}
+.plans{display:flex;flex-direction:column;gap:1px;background:var(--rule);border:1px solid var(--rule)}
+.plan{background:var(--panel);padding:.8rem 1rem;display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.plan.rec{box-shadow:inset 3px 0 0 var(--real)}
+.plan .n{font-family:var(--util);font-size:12px;color:var(--ink-mid);white-space:nowrap;
+  font-variant-numeric:tabular-nums}
+.plan .rec-tag{font-family:var(--util);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;
+  border:1px solid var(--real);color:var(--real);padding:1px 5px;margin-left:.5rem;white-space:nowrap}
+.plan .why{color:var(--ink-dim);font-size:13.5px}
+.next{display:flex;flex-wrap:wrap;gap:.8rem;align-items:center;border-top:1px solid var(--rule);
+  padding-top:1.2rem;color:var(--ink-mid);font-size:14.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="nav">
+      <p class="k">Preflight</p>
+      <a class="k" href="/" style="color:var(--sim)">Open the full app →</a>
+    </div>
+    <div class="pitch">
+      <div style="display:flex;flex-direction:column;gap:1rem">
+        <h1>Paste the thread you're <span>dreading</span>.</h1>
+        <p class="lede">You get the week as it probably goes: whether a nudge gets answered, how
+          likely that is, and what leaving it alone costs. Then a picture of it you can save.</p>
+        <ul class="gets">
+          <li><span class="m">01</span><span><b>A branch map.</b> One line per plan, one endpoint
+            per way the week can land, thickness by probability.</span></li>
+          <li><span class="m">02</span><span><b>The odds, and where they came from.</b> One thread
+            is thin evidence and the page says so in as many words rather than rounding it into
+            confidence.</span></li>
+          <li><span class="m">03</span><span><b>A card to post.</b> Plan names, counts and
+            probabilities — no names, no subject lines, no message text.</span></li>
+        </ul>
+      </div>
+
+      <div class="card quiet">
+        <p class="k">What this costs you</p>
+        <ul class="promise">
+          <li><span class="m">✓</span><span><b>No account.</b> There is no sign-up on this page and
+            no cookie set by it.</span></li>
+          <li><span class="m">✓</span><span><b>Nothing written down.</b> Your thread is parsed into
+            an in-memory database that is closed and freed before the response is sent. There is no
+            file for it to land in.</span></li>
+          <li><span class="m">✓</span><span><b>Nowhere to go.</b> The server binds to loopback. It
+            is running on the machine in front of you, and it has no outbound connection to make.</span></li>
+          <li><span class="m">✓</span><span><b>Your address is a comparison.</b> It is used once, to
+            work out which messages in the paste are yours, and discarded with everything else.</span></li>
+        </ul>
+        <p class="privacy" style="font-size:12.5px">Take the claim as far as you like: it is
+          <code style="font-family:var(--util);font-size:11.5px;color:var(--ink-mid)">preflight/paste.py</code>,
+          about two hundred lines, and the test suite asserts the trunk's hash is unchanged after a
+          paste.</p>
+      </div>
+    </div>
+  </header>
+
+  <section class="card">
+    <div class="maphead">
+      <label class="k" for="text">The thread</label>
+      <span style="flex:1"></span>
+      <button class="link" id="example" type="button">Fill it with an example instead</button>
+    </div>
+    <textarea id="text" spellcheck="false" aria-describedby="texthelp"
+      placeholder="Paste a reply chain with its &quot;On … wrote:&quot; lines still in it, or the raw message from your client's &quot;show original&quot;."></textarea>
+    <p class="k" id="texthelp" style="text-transform:none;letter-spacing:.02em;font-size:11.5px">
+      Gmail-style and Apple-Mail-style dates both parse. Two messages is enough; more is better.</p>
+    <div class="controls">
+      <label class="k" for="me" style="position:absolute;left:-9999px">Your email address</label>
+      <input id="me" type="email" placeholder="your email address" autocomplete="email">
+      <button class="go" id="run">Rehearse it</button>
+      <span class="k" id="state" role="status" aria-live="polite"></span>
+    </div>
+    <div class="prog" id="prog" hidden><i></i></div>
+    <p class="err" id="error" role="alert"></p>
+  </section>
+
+  <section id="result" class="stack" hidden>
+    <div class="maphead">
+      <p class="k">What was read</p>
+      <span style="flex:1"></span>
+      <span class="stamp">Nothing was stored</span>
+    </div>
+    <div class="read" id="read"></div>
+    <p class="thin" id="thin" hidden></p>
+
+    <div class="map">
+      <div class="maphead">
+        <p class="k">The branch map</p>
+        <span style="flex:1"></span>
+        <p class="hint" id="scrollhint" hidden>Scroll sideways for the full week →</p>
+      </div>
+      <div class="map-scroll"><svg id="map" role="img" aria-label="Branch map of rehearsed futures"></svg></div>
+      <div class="legend">
+        <span class="key r">Recommended</span>
+        <span class="key s">Simulated future</span>
+        <span class="key d">Something lands late</span>
+        <span style="flex:1"></span>
+        <button class="ghost" id="png">Save image</button>
+        <button class="ghost" id="svg">Save SVG</button>
+      </div>
+    </div>
+
+    <div>
+      <p class="k" style="margin-bottom:.5rem">What each choice is worth</p>
+      <div class="plans" id="plans"></div>
+    </div>
+
+    <p class="privacy">The picture carries no names, no subject lines and no message text — only
+      plan names, counts and probabilities. That is what makes it safe to post without reading it
+      twice first.</p>
+
+    <div class="next">
+      <span>One thread is one thread. Point it at a mailbox and the same rehearsal is measured
+        against your own history instead of a stated prior.</span>
+      <a class="k" href="/" style="color:var(--sim)">Open the full app →</a>
+    </div>
+  </section>
+
+</div>
+
+<script src="/map.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+let RESULT = null;
+
+/* A worked example, so the picture exists before anyone has to trust the page
+   with something of their own. Invented addresses, obviously so. */
+const EXAMPLE = `Any chance you got to the numbers? Happy to just send what I have if that's easier.
+
+On Mon, 3 Aug 2026 at 09:12, Dana Oyelaran <dana@example.org> wrote:
+> Thanks for the draft — a couple of comments on section two, I'll send them tonight.
+
+On Fri, 31 Jul 2026 at 16:40, You <you@example.com> wrote:
+> Attaching the first pass. Let me know if the framing works before I take it further.
+
+On Wed, 29 Jul 2026 at 11:05, Dana Oyelaran <dana@example.org> wrote:
+> Can you take a first pass at the rollup? It needs to be with finance by the 7th.`;
+
+function meta() {
+  const d = RESULT.diagnostics;
+  const best = RESULT.plans.find(p => p.id === RESULT.recommended);
+  return {
+    title: `One thread, ${RESULT.horizon_days} days ahead`,
+    subtitle: `${best.name} — ${best.expected.replies.toFixed(2)} replies expected` +
+              (d.thin ? " · thin evidence, leaning on a stated prior" : ""),
+  };
+}
+
+function drawMap() {
+  if (!RESULT) return;
+  const svg = $("#map"), scroller = svg.parentElement;
+  const built = buildBranchMap(RESULT, { width: branchMapWidth(scroller) });
+  wireBranchMap(svg, built, {});
+  svg.setAttribute("aria-label",
+    `Branch map: ${plural(RESULT.plans.length, "plan", "plans")} over ${RESULT.horizon_days} days. ` +
+    `The list beneath carries the same numbers.`);
+  $("#scrollhint").hidden = scroller.scrollWidth <= scroller.clientWidth + 4;
+}
+
+function show(r) {
+  RESULT = r;
+  const d = r.diagnostics;
+  $("#result").hidden = false;
+
+  $("#read").innerHTML = `
+    <div><p class="k">Read as</p><b style="font-size:13px">${esc(d.shape)}</b></div>
+    <div><p class="k">Messages</p><b>${d.messages}</b></div>
+    <div><p class="k">From them</p><b>${d.from_them}</b></div>
+    <div><p class="k">Replies seen</p><b>${d.observed_replies}</b></div>
+    <div><p class="k">Span</p><b>${d.span_days}d</b></div>`;
+
+  const thin = $("#thin");
+  thin.hidden = !d.thin;
+  if (d.thin) {
+    thin.innerHTML =
+      `<b>These odds are mostly a prior, not a measurement.</b> ` +
+      `${plural(d.observed_replies, "reply", "replies")} observed in one thread is not enough to ` +
+      `say much about ${esc(d.counterparty_name)} specifically, so the model shrinks hard toward a ` +
+      `stated population figure of ${Math.round(d.prior_used * 100)}%. That figure is itself a ` +
+      `placeholder for a number this product is supposed to learn across users. Point it at a ` +
+      `mailbox and the same rehearsal is measured instead of assumed.`;
+  }
+
+  drawMap();
+
+  $("#plans").innerHTML = r.plans.map(p => {
+    const rec = p.id === r.recommended, e = p.expected;
+    return `<div class="plan ${rec ? "rec" : ""}">
+      <div style="min-width:0">
+        <div>${esc(p.name)}${rec ? '<span class="rec-tag">Recommended</span>' : ""}</div>
+        <div class="why">${esc(p.rationale)}</div>
+      </div>
+      <div class="n">${plural(p.actions.length, "action", "actions")} ·
+        ${e.replies.toFixed(2)} replies · score ${p.utility > 0 ? "+" : ""}${p.utility.toFixed(2)}</div>
+    </div>`;
+  }).join("");
+}
+
+async function run() {
+  const text = $("#text").value;
+  $("#error").textContent = "";
+  $("#text").setAttribute("aria-invalid", "false");
+  $("#state").textContent = "Reading the thread…";
+  $("#prog").hidden = false;
+  $("#run").disabled = true;
+  try {
+    const res = await fetch("/api/paste", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ text, me: $("#me").value }),
+    });
+    const j = await res.json();
+    if (!res.ok) throw new Error(j.error || res.statusText);
+    show(j);
+    $("#state").textContent = "";
+    $("#result").scrollIntoView({
+      behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+      block: "start",
+    });
+  } catch (e) {
+    $("#state").textContent = "";
+    $("#text").setAttribute("aria-invalid", "true");
+    $("#error").innerHTML = esc(e.message) +
+      ` <button class="link" type="button" id="tryexample">Try the example instead</button>`;
+    const t = $("#tryexample");
+    if (t) t.addEventListener("click", fillExample);
+  } finally { $("#run").disabled = false; $("#prog").hidden = true; }
+}
+
+function fillExample() {
+  $("#text").value = EXAMPLE;
+  $("#me").value = "you@example.com";
+  $("#error").textContent = "";
+  $("#text").setAttribute("aria-invalid", "false");
+  run();
+}
+
+$("#run").addEventListener("click", run);
+$("#example").addEventListener("click", fillExample);
+$("#png").addEventListener("click", () => downloadMapPNG(RESULT, meta(), "branch-map.png"));
+$("#svg").addEventListener("click", () => downloadMapSVG(RESULT, meta(), "branch-map.svg"));
+
+onContainerResize($("#map").parentElement, drawMap);
+</script>
+</body>
+</html>

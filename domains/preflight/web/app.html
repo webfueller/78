@@ -1,0 +1,767 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Preflight</title>
+<style>
+/* A committed single-theme instrument panel: amber is what is real, cyan is
+   what is simulated, rust is what goes wrong. Every colour is painted
+   explicitly so the page never borrows a ground it did not choose.
+
+   Rust is the only one of the three that also has to work as small text, and at
+   the stroke weight it needs to be recognisable it does not clear 4.5:1. So
+   there are two: --dead draws, --dead-ink writes. The alternative was a warning
+   colour you cannot read. */
+:root {
+  --ground:#0C1720; --panel:#12212C; --sunken:#091219;
+  --rule:#21384A; --rule-soft:#1A2C3A;
+  --ink:#D9E4E9; --ink-mid:#A8BCC6; --ink-dim:#7B95A3;
+  --real:#E8A33D; --sim:#61B7C5; --dead:#C4614C; --dead-ink:#DC7B63; --good:#7FB069;
+  --display:"Iowan Old Style",Charter,Georgia,serif;
+  --util:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+/* `display:flex` on a component beats the user-agent rule for [hidden], so a
+   hidden panel keeps rendering. Every hidden section in this page is a flex or
+   grid container, so this is not a nicety. */
+[hidden]{display:none !important}
+html,body{margin:0;height:100%}
+body{
+  background:var(--ground); color:var(--ink);
+  font-family:var(--display); font-size:15px; line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+.mono,.k{font-family:var(--util)}
+.k{font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-dim);margin:0}
+h1,h2,h3{margin:0;font-weight:400;letter-spacing:-.01em}
+h1{font-size:19px}
+h2{font-size:17px}
+h3{font-size:15px}
+p{margin:0}
+a{color:var(--sim)}
+button{font:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--sim);outline-offset:2px}
+.endpoint:focus{outline:none}
+.endpoint:focus-visible .hit{fill:none;stroke:var(--sim);stroke-width:1.5}
+@media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
+
+/* ---------- frame ---------- */
+header.top{
+  display:flex;flex-wrap:wrap;gap:12px 26px;align-items:center;
+  padding:11px 22px;border-bottom:1px solid var(--rule);background:var(--panel);
+}
+header.top h1 span{color:var(--real)}
+.gauges{display:flex;flex-wrap:wrap;gap:10px 26px}
+.gauge{display:flex;flex-direction:column;gap:1px;min-width:0}
+.gauge .v{font-family:var(--util);font-size:11.5px;color:var(--ink-mid);
+  font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.gauge .v em{font-style:normal;color:var(--ink)}
+.lnk{color:var(--sim);text-decoration:none;border-bottom:1px solid transparent;padding-bottom:1px}
+.lnk:hover{border-bottom-color:var(--sim)}
+.grid{display:grid;grid-template-columns:288px minmax(0,1fr);gap:1px;background:var(--rule);min-height:calc(100% - 56px)}
+.grid.solo{grid-template-columns:minmax(0,1fr)}
+aside,main{background:var(--ground);padding:20px 22px;min-width:0}
+aside{display:flex;flex-direction:column;gap:20px}
+main{display:flex;flex-direction:column;gap:20px}
+@media (max-width:900px){.grid{grid-template-columns:1fr} aside{order:2}}
+
+/* ---------- lists ---------- */
+.rows{display:flex;flex-direction:column;gap:1px;background:var(--rule-soft);border:1px solid var(--rule-soft)}
+.row{background:var(--panel);padding:7px 10px;display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.row .who{color:var(--ink-mid);font-size:13.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .num{font-family:var(--util);font-size:11px;color:var(--ink-dim);white-space:nowrap;font-variant-numeric:tabular-nums}
+/* The flag is a glyph before it is a colour, so the warning survives a screen
+   that cannot tell rust from grey. */
+.row.warn .num{color:var(--dead-ink)}
+.row.warn .num::before{content:"▲ ";font-size:9px}
+.sidehead{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px}
+
+/* ---------- controls ---------- */
+.mandate{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip{
+  border:1px solid var(--rule);background:var(--sunken);color:var(--ink-dim);
+  padding:5px 11px;font-family:var(--util);font-size:11px;letter-spacing:.1em;
+  text-transform:uppercase;transition:border-color .12s,color .12s;
+}
+.chip::before{content:"○ ";opacity:.8}
+.chip[aria-pressed="true"]{border-color:var(--real);color:var(--real);background:#151F1E}
+.chip[aria-pressed="true"]::before{content:"✓ "}
+.chip:hover{color:var(--ink-mid)}
+.chip[aria-pressed="true"]:hover{color:var(--real)}
+.go{
+  border:1px solid var(--real);background:var(--real);color:#0C1720;
+  padding:7px 16px;font-family:var(--util);font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+}
+.go[disabled]{opacity:.45;cursor:not-allowed}
+.go.busy{cursor:progress}
+.ghost{border:1px solid var(--rule);background:transparent;color:var(--ink-mid);
+  padding:6px 13px;font-family:var(--util);font-size:11px;letter-spacing:.1em;text-transform:uppercase}
+.ghost:hover{border-color:var(--sim);color:var(--sim)}
+.sub{color:var(--ink-mid);font-size:13.5px;max-width:74ch}
+
+/* ---------- pending ---------- */
+.prog{height:3px;background:var(--sunken);border:1px solid var(--rule-soft);overflow:hidden;position:relative}
+.prog i{position:absolute;inset:0 auto 0 0;width:34%;background:var(--sim);animation:slide 1.15s ease-in-out infinite}
+@keyframes slide{0%{left:-34%}100%{left:100%}}
+@media (prefers-reduced-motion:reduce){.prog i{left:0;width:100%;opacity:.45}}
+.skel{display:flex;flex-direction:column;gap:9px;padding:4px 0 2px}
+.skel span{display:block;height:9px;background:var(--rule-soft)}
+
+/* ---------- map ---------- */
+.map{border:1px solid var(--rule);background:var(--panel);padding:12px 14px 10px;
+  display:flex;flex-direction:column;gap:9px}
+.maphead{display:flex;flex-wrap:wrap;gap:4px 18px;align-items:baseline}
+.map-scroll{overflow-x:auto;overscroll-behavior-x:contain}
+svg#map{display:block;width:100%;height:auto}
+.edge{fill:none;stroke-linecap:round;transition:opacity .15s}
+.edge.dim{opacity:.16}
+.endpoint{cursor:pointer}
+.endpoint .hit{fill:transparent;stroke:none}
+.endpoint:hover .hit{fill:#FFFFFF;fill-opacity:.045}
+.endpoint[aria-current="true"] .hit{fill:var(--real);fill-opacity:.11;stroke:var(--real);stroke-opacity:.5;stroke-width:1}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;
+  border-top:1px solid var(--rule-soft);padding-top:9px}
+.key{display:inline-flex;align-items:center;gap:7px;font-family:var(--util);font-size:10px;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim)}
+.key::before{content:"";width:16px;height:2px;background:currentColor}
+.key.r{color:var(--real)}.key.s{color:var(--sim)}
+.key.d{color:var(--dead-ink)}
+.key.d::before{content:"▲";width:auto;height:auto;background:none;font-size:9px;line-height:1}
+.hint{color:var(--ink-dim);font-size:11px;font-family:var(--util);letter-spacing:.08em;text-transform:uppercase}
+
+/* ---------- plan table ---------- */
+.tablewrap{overflow-x:auto;border:1px solid var(--rule)}
+table{border-collapse:collapse;width:100%;min-width:700px;font-size:13.5px}
+th,td{text-align:right;padding:9px 12px;border-bottom:1px solid var(--rule-soft);white-space:nowrap;vertical-align:middle}
+th:first-child,td:first-child{text-align:left;white-space:normal}
+thead th{font-family:var(--util);font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--ink-dim);background:var(--sunken);border-bottom-color:var(--rule);vertical-align:bottom}
+thead th .dir{display:block;font-size:8.5px;letter-spacing:.06em;color:var(--ink-dim);opacity:.75;text-transform:none}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--sunken)}
+tbody tr[aria-current="true"]{background:var(--sunken)}
+tbody tr[aria-current="true"] td:first-child{box-shadow:inset 3px 0 0 var(--real)}
+tbody tr:last-child td{border-bottom:none}
+td.n{font-family:var(--util);font-size:12px;font-variant-numeric:tabular-nums;color:var(--ink-mid)}
+td.n .v{display:block}
+/* A bar under every number, scaled to that column. Five plans on five numbers is
+   an arithmetic problem until the magnitudes are drawn. */
+.mini{display:block;height:3px;background:var(--rule-soft);margin-top:4px;position:relative;min-width:54px}
+.mini i{position:absolute;top:0;bottom:0;background:var(--ink-dim)}
+/* The score crosses zero, so zero has to be drawn or the bar is unreadable. */
+.mini.center::after{content:"";position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--rule)}
+td.good .mini i{background:var(--sim)}
+td.bad .mini i{background:var(--dead)}
+td.bad .v{color:var(--dead-ink)}
+td.pos .mini i{background:var(--real)}
+td.zero{border-left:1px solid var(--rule-soft)}
+.planname{color:var(--ink)}
+.pick .planname{color:var(--real)}
+.rationale{color:var(--ink-dim);font-size:12.5px;max-width:62ch;white-space:normal}
+.tag{font-family:var(--util);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;
+  border:1px solid var(--real);color:var(--real);padding:1px 5px;margin-left:8px;white-space:nowrap}
+.why{border-left:2px solid var(--real);padding:2px 0 2px 12px;color:var(--ink-mid);
+  font-size:13.5px;max-width:80ch;margin-top:10px}
+.why b{color:var(--real);font-weight:400}
+.caveat{color:var(--ink-dim);font-size:12.5px;max-width:80ch;margin-top:8px}
+.caveat code{font-family:var(--util);font-size:11.5px;color:var(--ink-mid);background:none;border:none;padding:0}
+
+@media (max-width:760px){
+  .tablewrap{border:none;overflow:visible}
+  table{min-width:0}
+  table,tbody,tr,td{display:block;width:100%}
+  thead{display:none}
+  tbody tr{border:1px solid var(--rule);background:var(--panel);margin-bottom:10px;padding:11px 13px}
+  tbody tr[aria-current="true"]{border-color:var(--real)}
+  tbody tr[aria-current="true"] td:first-child{box-shadow:none}
+  tbody td{border:none;padding:4px 0;text-align:left;white-space:normal;
+    display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center}
+  tbody td::before{content:attr(data-label);font-family:var(--util);font-size:9.5px;
+    letter-spacing:.11em;text-transform:uppercase;color:var(--ink-dim)}
+  tbody td:first-child{display:block;padding-bottom:8px}
+  tbody td:first-child::before{content:none}
+  td.n .v{text-align:right}
+  .mini{grid-column:1 / -1;min-width:0}
+}
+
+/* ---------- detail ---------- */
+.split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+@media (max-width:900px){.split{grid-template-columns:1fr}}
+.card{border:1px solid var(--rule);background:var(--panel);padding:14px 16px;display:flex;flex-direction:column;gap:11px}
+.tl{display:flex;flex-direction:column;gap:9px;max-height:360px;overflow-y:auto}
+.ev{display:grid;grid-template-columns:78px 1fr;gap:10px;align-items:baseline;
+  border-left:2px solid var(--real);padding-left:11px}
+.ev.simulated{border-left-color:var(--sim)}
+.ev time{font-family:var(--util);font-size:10px;color:var(--ink-dim);
+  font-variant-numeric:tabular-nums;display:block;line-height:1.35}
+.ev time b{display:block;color:var(--ink-mid);font-weight:400}
+.ev p{margin:0;font-size:13.5px;color:var(--ink-mid)}
+.ev .who{color:var(--ink);font-size:13px}
+.ev.simulated .who{color:var(--sim)}
+.stamp{font-family:var(--util);font-size:9px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--sim);display:inline-block;margin-top:1px}
+.stamp.real{color:var(--real)}
+.receipt{font-family:var(--util);font-size:11.5px;color:var(--ink-dim);word-break:break-word;
+  display:flex;flex-direction:column;gap:3px;line-height:1.5}
+.receipt div{display:grid;grid-template-columns:88px minmax(0,1fr);gap:10px}
+.receipt b{color:var(--ink-dim);font-weight:400;letter-spacing:.08em;text-transform:uppercase;font-size:9.5px}
+.receipt span{color:var(--ink-mid)}
+.receipt .ok{color:var(--good)}
+.receipt .no{color:var(--dead-ink)}
+.err{color:var(--dead-ink);font-family:var(--util);font-size:12px;line-height:1.5}
+.err:not(:empty)::before{content:"▲ "}
+.bars{display:flex;flex-direction:column;gap:7px}
+.bar{display:grid;grid-template-columns:minmax(0,1fr) 92px 38px;gap:12px;align-items:center;font-size:12.5px}
+.bar .t{color:var(--ink-mid);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar .track{display:block;height:6px;background:var(--sunken);border:1px solid var(--rule-soft)}
+.bar .fill{display:block;height:100%;background:var(--sim)}
+.bar .v{font-family:var(--util);font-size:11px;color:var(--ink-mid);text-align:right;font-variant-numeric:tabular-nums}
+.empty{color:var(--ink-dim);font-size:13.5px}
+.steps{margin:0;padding-left:1.2rem;display:flex;flex-direction:column;gap:.65rem;
+  color:var(--ink-mid);font-size:14.5px;max-width:70ch}
+.steps b{color:var(--ink);font-weight:400}
+code{font-family:var(--util);font-size:12px;background:var(--sunken);border:1px solid var(--rule-soft);
+  padding:.15rem .4rem;display:inline-block;margin-top:.25rem;color:var(--ink-mid)}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <h1>Pre<span>flight</span></h1>
+  <div class="gauges">
+    <div class="gauge"><p class="k">World clock</p><p class="v" id="clock">—</p></div>
+    <div class="gauge" id="burngauge"><p class="k">Standing charges</p><p class="v" id="burn">—</p></div>
+    <div class="gauge"><p class="k">Prediction scoreboard</p><p class="v" id="calib">—</p></div>
+  </div>
+  <span style="flex:1"></span>
+  <a class="k lnk" href="/paste">Rehearse a single thread →</a>
+</header>
+
+<div class="grid">
+  <aside>
+    <div>
+      <div class="sidehead"><p class="k">Waiting on someone</p><p class="k" id="threadcount"></p></div>
+      <div class="rows" id="threads"></div>
+    </div>
+    <div>
+      <div class="sidehead"><p class="k">Next up</p></div>
+      <div class="rows" id="meetings"></div>
+    </div>
+    <div>
+      <div class="sidehead"><p class="k">Standing charges</p></div>
+      <div class="rows" id="subs"></div>
+    </div>
+  </aside>
+
+  <main>
+    <section class="card" id="onboard" hidden>
+      <p class="k">No twin yet</p>
+      <h2>There is nothing to rehearse until this knows something about your week.</h2>
+      <p class="sub">Three ways in, cheapest first. The first one takes about thirty seconds and
+        asks for nothing.</p>
+      <ol class="steps">
+        <li><b>Try one thread.</b> <a href="/paste">Paste a conversation</a> — no account, and the
+          copy it builds lives in memory for one request.</li>
+        <li><b>Use your real mail.</b> Gmail Takeout gives you an mbox; most calendars export ICS.
+          Both stay on this machine.
+          <code>preflight import --mbox mail.mbox --ics cal.ics --me you@example.com</code></li>
+        <li><b>Look around first.</b> A seeded synthetic life, so you can see the whole thing working
+          before deciding whether to feed it anything real.
+          <code>preflight demo</code></li>
+      </ol>
+    </section>
+
+    <section class="card" id="mandatecard">
+      <p class="k">The mandate</p>
+      <p class="sub">What is the week for? Each mandate you keep adds a plan to compare. Nothing
+        happens outside this machine until you commit one.</p>
+      <div class="mandate" role="group" aria-label="Mandate">
+        <button class="chip" data-m="chase"  aria-pressed="true">Chase what's gone quiet</button>
+        <button class="chip" data-m="prune"  aria-pressed="true">Cut what I don't use</button>
+        <button class="chip" data-m="defend" aria-pressed="true">Defend the calendar</button>
+        <button class="go" id="run">Rehearse the week</button>
+      </div>
+      <p class="k" id="runstate" role="status" aria-live="polite"></p>
+      <p class="err" id="runerror" role="alert"></p>
+    </section>
+
+    <section class="card" id="pending" hidden>
+      <p class="k">Rehearsing</p>
+      <div class="prog"><i></i></div>
+      <p class="sub">Forking the world, running the week inside the fork, and enumerating the
+        futures each plan can end in. A second or two.</p>
+      <div class="skel">
+        <span style="width:64%"></span><span style="width:88%"></span>
+        <span style="width:41%"></span><span style="width:73%"></span>
+      </div>
+    </section>
+
+    <section class="map" id="mapcard" hidden>
+      <div class="maphead">
+        <p class="k">The branch map</p>
+        <p class="k" id="coverage"></p>
+        <span style="flex:1"></span>
+        <p class="hint" id="scrollhint" hidden>Scroll sideways for the full week →</p>
+      </div>
+      <div class="map-scroll"><svg id="map" role="img" aria-label="Branch map of rehearsed futures"></svg></div>
+      <div class="legend">
+        <span class="key r">Recommended</span>
+        <span class="key s">Simulated future</span>
+        <span class="key d">Something lands late</span>
+        <span style="flex:1"></span>
+        <button class="ghost" id="png">Save image</button>
+        <button class="ghost" id="svg">Save SVG</button>
+      </div>
+      <p class="caveat">The saved card carries plan names, counts and probabilities and nothing
+        else — no contact, no subject line, no message text.</p>
+    </section>
+
+    <section id="planscard" hidden>
+      <p class="k" style="margin-bottom:8px">Plans, scored</p>
+      <div class="tablewrap">
+        <table>
+          <thead><tr>
+            <th scope="col">Plan</th>
+            <th scope="col">Actions<span class="dir">fewer is quieter</span></th>
+            <th scope="col">Replies expected<span class="dir">more is better</span></th>
+            <th scope="col">Late surprises<span class="dir">fewer is better</span></th>
+            <th scope="col">€ at risk<span class="dir">more is worth chasing</span></th>
+            <th scope="col">Saved / month<span class="dir">more is better</span></th>
+            <th scope="col">Score<span class="dir">the weighted sum</span></th>
+          </tr></thead>
+          <tbody id="plans"></tbody>
+        </table>
+      </div>
+      <p class="why" id="why"></p>
+      <p class="caveat" id="weights"></p>
+    </section>
+
+    <section class="split" id="detail" hidden>
+      <div class="card">
+        <p class="k">This future, hour by hour</p>
+        <h2 id="futuretitle">—</h2>
+        <p class="sub" id="futuresub"></p>
+        <div class="tl" id="timeline"></div>
+      </div>
+      <div class="card">
+        <p class="k">Commit</p>
+        <p class="empty" id="committext">Pick a future on the map.</p>
+        <div class="mandate">
+          <button class="go" id="commit" hidden>Commit this future</button>
+          <button class="ghost" id="undo" hidden>Undo it</button>
+        </div>
+        <div class="receipt" id="receipt"></div>
+        <p class="err" id="error" role="alert"></p>
+        <div>
+          <p class="k" style="margin-bottom:7px">What the plan is claiming</p>
+          <div class="bars" id="claims"></div>
+          <p class="caveat">These went on the prediction ledger when the rehearsal ran. Reality
+            settles them on their own due dates, whether or not you commit anything.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="/map.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const api = async (path, body) => {
+  const r = await fetch(path, body ? {
+    method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)
+  } : {});
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+};
+const money = c => (c/100).toLocaleString(undefined,{style:"currency",currency:"EUR"});
+const day = ts => new Date(ts*1000).toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"});
+const wday = ts => new Date(ts*1000).toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"});
+const clock = ts => new Date(ts*1000).toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit"});
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+let MAP = null, SELECTED = null, DETAIL = null, LAST_COMMIT = null;
+/* The twin keeps its own clock, and on seeded or imported history it is nowhere
+   near the wall clock. Anything counting down has to count against this one. */
+let WORLD_CLOCK = null;
+
+/* ------------------------------------------------------------------ the world */
+
+async function loadWorld() {
+  const w = await api("/api/world");
+  const empty = !w.summary.contacts;
+  WORLD_CLOCK = w.summary.clock || null;
+  $("#onboard").hidden = !empty;
+  $("#mandatecard").hidden = empty;
+  // With no twin there is nothing for the rail to hold, and three panels reading
+  // "Nothing yet" are worse than no rail.
+  document.querySelector("aside").hidden = empty;
+  document.querySelector(".grid").classList.toggle("solo", empty);
+  document.querySelector("#burngauge").hidden = empty;
+  if (empty) { $("#clock").textContent = "no history loaded"; return; }
+
+  $("#clock").innerHTML = `<em>${esc(day(w.summary.clock))}</em>`;
+  $("#burn").innerHTML = `<em>${esc(money(w.summary.monthly_burn_cents))}</em> / mo across ` +
+                         `${w.summary.active_subscriptions} subscriptions`;
+
+  const shown = w.threads.length, total = w.summary.open_threads;
+  $("#threadcount").textContent = total > shown ? `${shown} of ${total}` : "";
+  $("#threads").innerHTML = w.threads.map(t => `
+    <div class="row ${t.waiting_days > 7 ? "warn":""}">
+      <span class="who">${esc(t.name)} — ${esc(t.subject)}</span>
+      <span class="num">${t.waiting_days}d</span>
+    </div>`).join("") || `<div class="row"><span class="who">Nothing outstanding.</span></div>`;
+
+  $("#meetings").innerHTML = w.meetings.map(m => `
+    <div class="row ${m.moves ? "warn":""}">
+      <span class="who">${esc(m.title)}</span>
+      <span class="num">in ${m.in_days}d${m.moves ? " · moved "+m.moves : ""}</span>
+    </div>`).join("") || `<div class="row"><span class="who">Clear for now.</span></div>`;
+
+  $("#subs").innerHTML = w.subscriptions.map(s => `
+    <div class="row">
+      <span class="who" style="${s.state!=="active"?"text-decoration:line-through;opacity:.55":""}">${esc(s.merchant)}</span>
+      <span class="num">${money(s.amount_cents)}</span>
+    </div>`).join("") || `<div class="row"><span class="who">None recorded.</span></div>`;
+}
+
+async function loadScore() {
+  try {
+    const s = await api("/api/score");
+    const o = s.overall;
+    $("#calib").innerHTML = o.n
+      ? `<em>Brier ${o.brier}</em> vs ${o.baseline_brier} baseline · ` +
+        `${plural(o.n, "claim", "claims")} settled · ${esc(o.verdict)}`
+      : `<em>${plural(s.open_claims, "claim", "claims")} open</em>, none settled yet`;
+  } catch (e) { $("#calib").textContent = "unavailable"; }
+}
+
+/* ------------------------------------------------------------- the branch map */
+
+function drawMap() {
+  if (!MAP) return;
+  const svg = $("#map"), scroller = svg.parentElement;
+  const built = buildBranchMap(MAP, { width: branchMapWidth(scroller) });
+  wireBranchMap(svg, built, { onPick: selectFuture, onHover: highlight });
+  svg.setAttribute("aria-label",
+    `Branch map: ${plural(MAP.plans.length, "plan", "plans")} over ${MAP.horizon_days} days, ` +
+    `each ending in one of several futures. The table beneath carries the same numbers.`);
+  markSelected();
+  $("#scrollhint").hidden = scroller.scrollWidth <= scroller.clientWidth + 4;
+
+  const cov = MAP.plans.map(p => p.coverage).reduce((a,b)=>Math.min(a,b), 1);
+  $("#coverage").textContent =
+    `Every plan's shown futures cover at least ${Math.round(cov*100)}% of what could happen`;
+}
+
+function markSelected() {
+  if (!SELECTED) return;
+  $("#map").querySelectorAll(".endpoint").forEach(g =>
+    g.setAttribute("aria-current",
+      +g.dataset.plan === SELECTED.pi && +g.dataset.branch === SELECTED.bj ? "true" : "false"));
+}
+
+function shareMeta() {
+  const best = MAP.plans.find(p => p.id === MAP.recommended);
+  const e = best.expected;
+  return {
+    title: `${MAP.horizon_days} days, ${plural(MAP.plans.length, "plan", "plans")}, rehearsed`,
+    subtitle: `Recommended: ${best.name} — ${plural(best.actions.length, "action", "actions")}, ` +
+              `${e.replies.toFixed(1)} replies expected, ${e.late_surprises.toFixed(1)} late surprises`,
+  };
+}
+
+function highlight(pi, bj) {
+  $("#map").querySelectorAll(".edge").forEach(e => {
+    if (pi === null) { e.classList.remove("dim"); return; }
+    const keep = e.classList.contains(`p${pi}`) &&
+                 (bj === undefined || !/b\d+-\d+/.test(e.className.baseVal) || e.classList.contains(`b${pi}-${bj}`));
+    e.classList.toggle("dim", !keep);
+  });
+}
+
+/* ---------------------------------------------------------------- plan table */
+
+/* A number, right-aligned, with a bar underneath scaled to the column. `tone`
+   says which way is up: cyan for the things you want more of, rust for the one
+   you want less of, amber for the score itself. */
+function cell(label, text, frac, tone, extra = "") {
+  const w = Math.max(0, Math.min(1, frac || 0)) * 100;
+  return `<td class="n ${tone}" data-label="${esc(label)}"${extra}>
+    <span class="v">${esc(text)}</span>
+    <span class="mini"><i style="left:0;width:${w.toFixed(1)}%"></i></span></td>`;
+}
+
+/* The score crosses zero, so its bar does too: left of the centre line is a plan
+   that is worse than doing nothing. */
+function scoreCell(u, span) {
+  const mid = 50, half = span ? (Math.abs(u) / span) * 50 : 0;
+  const left = u >= 0 ? mid : mid - half;
+  return `<td class="n zero ${u >= 0 ? "pos" : ""}" data-label="Score">
+    <span class="v">${u > 0 ? "+" : ""}${u.toFixed(2)}</span>
+    <span class="mini center"><i style="left:${left.toFixed(1)}%;width:${Math.max(1.2, half).toFixed(1)}%;
+      background:${u >= 0 ? "var(--real)" : "var(--ink-dim)"}"></i></span></td>`;
+}
+
+function drawPlans(map) {
+  const max = k => Math.max(...map.plans.map(k), 0) || 1;
+  const maxAct = max(p => p.actions.length);
+  const maxRep = max(p => p.expected.replies);
+  const maxLate = max(p => p.expected.late_surprises);
+  const maxSave = max(p => p.expected.burn_saved_cents);
+  const maxRisk = max(p => p.expected.value_at_risk_k || 0);
+  const span = max(p => Math.abs(p.utility));
+
+  $("#plans").innerHTML = map.plans.map((p,i) => {
+    const e = p.expected, rec = p.id === map.recommended;
+    return `<tr data-plan="${i}" tabindex="0" aria-current="${rec}">
+      <td class="${rec?"pick":""}" data-label="Plan">
+        <span class="planname">${esc(p.name)}</span>${rec?'<span class="tag">Recommended</span>':""}
+        <div class="rationale">${esc(p.rationale)}</div></td>
+      ${cell("Actions", p.actions.length, p.actions.length/maxAct, "")}
+      ${cell("Replies expected", e.replies.toFixed(2), e.replies/maxRep, "good")}
+      ${cell("Late surprises", e.late_surprises.toFixed(2), e.late_surprises/maxLate, "bad")}
+      ${cell("€ at risk", e.value_at_risk_k ? money(e.value_at_risk_k * 100000) : "none",
+             maxRisk ? e.value_at_risk_k / maxRisk : 0, "good")}
+      ${cell("Saved / month", e.burn_saved_cents ? money(e.burn_saved_cents) : "none",
+             e.burn_saved_cents/maxSave, "good")}
+      ${scoreCell(p.utility, span)}
+    </tr>`;
+  }).join("");
+
+  $("#plans").querySelectorAll("tr").forEach(tr => {
+    const go = () => selectFuture(+tr.dataset.plan, 0);
+    tr.addEventListener("click", go);
+    tr.addEventListener("keydown", e => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); }
+    });
+  });
+
+  $("#why").innerHTML = why(map);
+
+  // Built from the weights the server actually scored with, never from a list
+  // written out by hand here. A term added to the model and not to this string
+  // would leave the page stating a formula that is not the formula -- which is
+  // exactly the kind of quiet lie the rest of this interface exists to avoid.
+  const LABEL = {
+    reply: "replies", per_action: "actions", burn_saved_per_1000c: "(saved ÷ €10)",
+    late_surprise: "late surprises", value_at_risk_k: "(€ at risk ÷ 1000)",
+    deadline_pressure: "deadlines landing",
+  };
+  const w = map.weights, from = map.weights_from || {};
+  // Real signs: "-0.25×actions" run against the term before it reads as a
+  // hyphen, which is not what a weight of minus a quarter deserves.
+  const terms = Object.keys(w).sort()
+    .map((k, i) => `${i === 0 ? "" : (w[k] < 0 ? "− " : "+ ")}` +
+                   `${i === 0 ? w[k] : Math.abs(w[k])} × ${LABEL[k] || k}`)
+    .join(" ");
+  const learned = from.source === "learned";
+  $("#weights").innerHTML =
+    `<code>score = ${terms}</code><br>` +
+    (learned
+      ? `These ${Object.keys(w).length} weights were fitted to the ${from.choices} decisions ` +
+        `you have made here, and used only because they beat the hand-picked ones on choices ` +
+        `they had not seen. ${esc(from.why || "")}`
+      : `These ${Object.keys(w).length} weights are placeholders — nobody has measured what an ` +
+        `unanswered thread is worth to you against an email you would rather not send. They get ` +
+        `replaced by weights fitted to your own decisions after ${from.needed || 8} commits, and ` +
+        `until then the ranking is only as good as the guess, which is why the guess is printed ` +
+        `rather than hidden behind the word “score”.`);
+}
+
+/* Why the recommended plan is recommended, in the plain terms of what actually
+   separates it from the runner-up -- including, when the gap is inside the
+   noise of a guessed weight, saying so. */
+function why(map) {
+  const sorted = [...map.plans].sort((a,b) => b.utility - a.utility);
+  const best = sorted[0], next = sorted[1];
+  if (!next) return `<b>${esc(best.name)}</b> is the only plan on the board.`;
+
+  const gap = best.utility - next.utility;
+  const d = (a, b) => +(a - b).toFixed(2);
+  const diffs = [];
+  const dr = d(best.expected.replies, next.expected.replies);
+  const dl = d(best.expected.late_surprises, next.expected.late_surprises);
+  const da = best.actions.length - next.actions.length;
+  const ds = d(best.expected.burn_saved_cents, next.expected.burn_saved_cents);
+  if (dl < 0) diffs.push(`${Math.abs(dl).toFixed(2)} fewer late surprises`);
+  if (dr > 0) diffs.push(`${dr.toFixed(2)} more replies expected`);
+  if (ds > 0) diffs.push(`${money(ds)} more saved`);
+  const costs = [];
+  if (da > 0) costs.push(`${plural(da, "more action", "more actions")}`);
+  if (dl > 0) costs.push(`${dl.toFixed(2)} more late surprises`);
+  if (dr < 0) costs.push(`${Math.abs(dr).toFixed(2)} fewer replies`);
+
+  const body = diffs.length
+    ? `It buys ${diffs.join(" and ")}${costs.length ? `, for ${costs.join(" and ")}` : ""}.`
+    : `The two are doing much the same thing by different routes.`;
+  const close = gap < 0.25
+    ? ` A margin of ${gap.toFixed(2)} on weights that are a guess is a coin toss, not a finding — ` +
+      `if that trade is not one you would make, take <b>${esc(next.name)}</b> instead.`
+    : ``;
+  return `<b>${esc(best.name)}</b> wins by ${gap.toFixed(2)} over <b>${esc(next.name)}</b>. ` +
+         `${body}${close}`;
+}
+
+/* ------------------------------------------------------------------ a future */
+
+async function selectFuture(pi, bj) {
+  const p = MAP.plans[pi], b = p.branches[bj];
+  SELECTED = { plan:p, branch:b, pi, bj };
+  LAST_COMMIT = null;
+  $("#detail").hidden = false;
+  $("#receipt").innerHTML = ""; $("#error").textContent = "";
+  $("#undo").hidden = true;
+  $("#plans").querySelectorAll("tr").forEach(tr =>
+    tr.setAttribute("aria-current", +tr.dataset.plan === pi ? "true" : "false"));
+  markSelected();
+
+  const late = b.metrics.late_surprises;
+  $("#futuretitle").textContent = p.name;
+  $("#futuresub").innerHTML =
+    `Future ${bj+1} of ${p.branches.length} · <b>${Math.round(b.p*100)}% likely</b> · ` +
+    `${plural(b.metrics.replies, "reply", "replies")} back · ` +
+    (late ? `<span style="color:var(--dead-ink)">▲ ${plural(late, "late surprise", "late surprises")}</span>`
+          : `nothing lands late`);
+
+  $("#claims").innerHTML = p.uncertain.length ? p.uncertain.map(u => `
+    <div class="bar">
+      <span class="t" title="${esc(u.describe)}">${esc(u.describe)}</span>
+      <span class="track"><span class="fill" style="width:${Math.round(u.p*100)}%"></span></span>
+      <span class="v">${Math.round(u.p*100)}%</span>
+    </div>`).join("") : `<p class="empty">This plan claims nothing, because it does nothing.</p>`;
+
+  $("#timeline").innerHTML = `<p class="empty">Reading the fork…</p>`;
+  const detail = DETAIL = await api("/api/branch?branch=" + encodeURIComponent(b.id));
+  $("#timeline").innerHTML = detail.timeline.length ? detail.timeline.map(e => `
+    <div class="ev ${e.simulated?"simulated":""}">
+      <time datetime="${new Date(e.ts*1000).toISOString()}"><b>${esc(wday(e.ts))}</b>${esc(clock(e.ts))}</time>
+      <div>
+        <div class="who">${esc(label(e))}</div>
+        ${e.simulated ? `<span class="stamp">Simulated · stays in this fork</span>` : ""}
+        ${e.body && !e.simulated ? `<p>${esc(e.body)}</p>` : ""}
+        ${e.reason ? `<p>${esc(e.reason)}</p>` : ""}
+      </div>
+    </div>`).join("") : `<p class="empty">Nothing happens. That is the plan.</p>`;
+
+  $("#committext").textContent = detail.committable
+    ? `${plural(detail.committable, "action", "actions")} would be committed to the record. ` +
+      `Nothing is sent yet — there is no mail connection, by design. The simulated replies ` +
+      `stay in the fork — the store refuses to promote them.`
+    : "This plan proposes no actions, so there is nothing to commit.";
+  $("#commit").hidden = !detail.committable;
+}
+
+function label(e) {
+  if (e.kind === "message.sent")       return "You send — " + (e.subject || e.entity);
+  if (e.kind === "message.received")   return "A reply lands — " + e.entity;
+  if (e.kind === "calendar.moved")     return "The meeting moves — " + e.entity;
+  if (e.kind === "money.cancelled")    return "Subscription cancelled — " + (e.merchant || e.entity);
+  return e.kind + " — " + e.entity;
+}
+
+/* -------------------------------------------------------------------- actions */
+
+function chosenMandate() {
+  return [...document.querySelectorAll(".chip")]
+    .filter(c => c.getAttribute("aria-pressed") === "true").map(c => c.dataset.m);
+}
+
+function syncRunButton() {
+  const none = chosenMandate().length === 0;
+  $("#run").disabled = none;
+  if (none) $("#runstate").textContent = "Keep at least one mandate — an empty week has nothing to rehearse.";
+  else if ($("#runstate").textContent.startsWith("Keep at least")) $("#runstate").textContent = "";
+}
+
+$("#run").addEventListener("click", async () => {
+  const mandate = chosenMandate();
+  if (!mandate.length) return;
+  const btn = $("#run");
+  btn.disabled = true; btn.classList.add("busy");
+  $("#runstate").textContent = "Rehearsing…";
+  $("#runerror").textContent = "";
+  $("#pending").hidden = false;
+  const first = !MAP;
+  if (first) { $("#mapcard").hidden = true; $("#planscard").hidden = true; $("#detail").hidden = true; }
+  try {
+    MAP = await api("/api/rehearse", { mandate, horizon_days: 7 });
+    $("#pending").hidden = true;
+    $("#mapcard").hidden = false; $("#planscard").hidden = false;
+    drawPlans(MAP);
+    const ri = MAP.plans.findIndex(p => p.id === MAP.recommended);
+    await selectFuture(ri < 0 ? 0 : ri, 0);
+    drawMap();
+    $("#runstate").textContent =
+      `${plural(MAP.plans.length, "plan", "plans")} · rehearsal ${MAP.rehearsal} · ` +
+      `nothing has touched the world yet`;
+    loadScore();
+  } catch (e) {
+    $("#pending").hidden = true;
+    $("#runstate").textContent = "";
+    $("#runerror").textContent = `The rehearsal did not finish: ${e.message}`;
+  } finally { btn.disabled = false; btn.classList.remove("busy"); syncRunButton(); }
+});
+
+document.querySelectorAll(".chip").forEach(c =>
+  c.addEventListener("click", () => {
+    c.setAttribute("aria-pressed", c.getAttribute("aria-pressed") === "true" ? "false" : "true");
+    syncRunButton();
+  }));
+
+$("#commit").addEventListener("click", async () => {
+  $("#error").textContent = "";
+  const btn = $("#commit");
+  btn.disabled = true;
+  try {
+    const r = await api("/api/commit", { branch: SELECTED.branch.id });
+    LAST_COMMIT = r.commit_id;
+    // The honest comparison: the rehearsal minus its simulated replies.
+    const matches = r.state_after === DETAIL.state_hash_real;
+    // The window is wall-clock now: the twin's clock does not advance while
+    // nobody is using it, and one imported message could jump it forward past
+    // the deadline. "24 hours" has to mean the reader's 24 hours, so the number
+    // is measured against the reader's clock.
+    const hrs = Math.round((r.undo_until * 1000 - Date.now()) / 3.6e6);
+    $("#receipt").innerHTML = `
+      <div><b>Commit</b><span>${esc(r.commit_id)} · ${plural(r.actions, "action", "actions")}</span></div>
+      <div><b>Before</b><span>${esc(r.state_before.slice(0,28))}…</span></div>
+      <div><b>After</b><span>${esc(r.state_after.slice(0,28))}…</span></div>
+      <div><b>Rehearsed</b><span class="${matches?"ok":"no"}">${matches
+        ? "matches — every real action landed exactly as previewed"
+        : "▲ differs from the rehearsal — investigate before trusting this"}</span></div>
+      <div><b>Undo until</b><span>${esc(wday(r.undo_until))} ${esc(clock(r.undo_until))}` +
+        ` · about ${hrs}h left</span></div>`;
+    $("#commit").hidden = true; $("#undo").hidden = false;
+    $("#committext").textContent = "Committed. The undo below appends a reversal — it does not erase the record.";
+    loadWorld();
+  } catch (e) { $("#error").textContent = e.message; }
+  finally { btn.disabled = false; }
+});
+
+$("#undo").addEventListener("click", async () => {
+  $("#error").textContent = "";
+  const btn = $("#undo");
+  btn.disabled = true;
+  try {
+    const r = await api("/api/undo", { commit_id: LAST_COMMIT });
+    $("#receipt").innerHTML += `<div><b>Undone</b><span class="${r.restored?"ok":"no"}">${r.restored
+      ? "world restored exactly — the commit stays in the log, it just stops applying"
+      : "▲ state differs after undo"}</span></div>`;
+    $("#undo").hidden = true;
+    loadWorld();
+  } catch (e) { $("#error").textContent = e.message; }
+  finally { btn.disabled = false; }
+});
+
+$("#png").addEventListener("click", () => downloadMapPNG(MAP, shareMeta(), "branch-map.png"));
+$("#svg").addEventListener("click", () => downloadMapSVG(MAP, shareMeta(), "branch-map.svg"));
+
+onContainerResize($("#map").parentElement, drawMap);
+syncRunButton();
+loadWorld(); loadScore();
+</script>
+</body>
+</html>
