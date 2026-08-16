@@ -202,6 +202,21 @@ class TestWhatTheAgentCannotDo(McpCase):
             for forbidden in ("root", "cwd", "directory", "db"):
                 self.assertNotIn(forbidden, props, f"{name} exposes {forbidden}")
 
+    def test_an_agent_cannot_force_an_undo_over_somebody_elses_work(self):
+        """The override exists for a human at a terminal, not for a model."""
+        self.assertNotIn("force", mcp.TOOLS["workbench_undo"]["schema"]["properties"])
+
+        proposed, _ = self.tool("workbench_propose",
+                                edits=[{"path": "app.py", "content": "print('agent')\n"}])
+        branch = next(p["branch"] for p in proposed["plans"] if p["id"] == "apply")
+        receipt, _ = self.tool("workbench_commit", branch=branch)
+        write(self.root, "app.py", "print('a human improved this')\n")
+
+        out, err = self.tool("workbench_undo", commit_id=receipt["commit_id"], force=True)
+        self.assertTrue(err)
+        self.assertIn("changed since this commit", out["error"])
+        self.assertEqual(read(self.root, "app.py"), "print('a human improved this')\n")
+
     def test_run_checks_is_not_a_shell(self):
         props = mcp.TOOLS["workbench_run_checks"]["schema"].get("properties", {})
         self.assertEqual(props, {})

@@ -55,6 +55,8 @@ def main(argv=None) -> int:
 
     p = sub.add_parser("undo")
     p.add_argument("commit_id")
+    p.add_argument("--force", action="store_true",
+                   help="restore even over files changed since the commit, losing that work")
 
     p = sub.add_parser("check", help="run the checks and settle what they settle")
     p.add_argument("--command", required=True)
@@ -106,7 +108,7 @@ def main(argv=None) -> int:
             out(commits.commit(store, args.branch, root))
 
         elif args.cmd == "undo":
-            out(commits.undo(store, args.commit_id, root))
+            out(commits.undo(store, args.commit_id, root, force=args.force))
 
         elif args.cmd == "check":
             out(checks.run(store, root, args.command, timeout=args.timeout))

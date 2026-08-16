@@ -210,7 +210,7 @@ domains/            what is built on it — pip install -e domains
   workbench/        an agent editing files; MCP server; the risk model
   preflight/        the mail twin, and where this came from
 
-tests/              210 tests, ~160s
+tests/              215 tests, ~140s
   test_takeback.py    the engine, driven by a domain that is not mail
   test_audit.py       the account, and whether it is true
   test_anchor.py      the forgery the chain cannot see, performed and caught
@@ -227,6 +227,25 @@ python3 -m unittest discover -s tests
 Two directions, one rule: `domains/` imports `takeback`, never the reverse. Two
 tests enforce it — one greps every engine module for a domain's name, one imports
 the engine in a clean interpreter and asserts no domain reaches `sys.modules`.
+
+## Status
+
+**Finished as an experiment, not maintained as a product.** It works, it is
+tested, and nobody outside its author has used it. That last part is the only
+number that matters and it is zero, so treat this as a design worth reading and
+borrowing from rather than something to depend on.
+
+What the evidence actually says, in one paragraph: the mail twin is a one-time
+cleanup rather than a subscription, measured — [002](docs/experiment-002.md) put
+the recurring value at 5–16% of week one and [003](docs/experiment-003.md)
+established that no scoring change reaches that. The engine underneath does not
+decay in the same way, and its own predictive edge is real but small
+([004](docs/experiment-004.md): +3.5% median). The preview, the receipt, the
+undo and the anchored audit trail are the parts I would defend; the probabilities
+are a supporting feature and the README has tried not to oversell them.
+
+Issues and pull requests are welcome and may sit unanswered. MIT licensed — fork
+it, take the parts you want.
 
 ## Design notes
 

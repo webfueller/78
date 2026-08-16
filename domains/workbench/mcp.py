@@ -223,7 +223,10 @@ TOOLS: Dict[str, dict] = {
         "description": (
             "Take a commit back. Restores the exact previous bytes of every file it "
             "touched, including deleting files it created, and reports whether the disk "
-            "now matches. Only works inside the undo window."
+            "now matches. Only works inside the undo window. Refuses if any of those "
+            "files has changed since the commit, because restoring would destroy that "
+            "work; there is no override here on purpose — a human can force it from the "
+            "command line after looking at the files."
         ),
         "schema": {
             "type": "object",

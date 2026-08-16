@@ -93,15 +93,39 @@ def _promoted(store: EventStore, commit_id: str) -> List[Event]:
     return [e for e in store.read(TRUNK) if e.commit_id == commit_id and e.kind in E.EDITS]
 
 
-def undo(store: EventStore, commit_id: str, root: str, at_ts: Optional[int] = None) -> dict:
+def undo(store: EventStore, commit_id: str, root: str, at_ts: Optional[int] = None,
+         force: bool = False) -> dict:
     """Take the commit back, and put the files back with it.
 
     Wrapped in a transaction the kernel's own undo does not open: if the files
     cannot be restored, the `commit.undone` event is rolled back too, so the log
     never claims a restoration that did not reach the disk.
+
+    Refuses if anything the commit touched has changed since. `commit` has always
+    checked that and `undo` did not, which was backwards: undo is the more
+    dangerous of the two, because whoever runs it believes they are restoring
+    rather than overwriting. An agent edits a file, you commit, a person edits it
+    afterwards, somebody undoes the commit -- and the person's work is gone, with
+    no event anywhere recording that it ever existed.
     """
     with store.transaction():
+        # Measured against the state *before* the undo. Afterwards the projection
+        # has already stopped applying the commit, so every file it touched would
+        # look like it had drifted, and the check would refuse everything.
+        current = Tree.fold(store.read(TRUNK))
+        mine = sorted({e.entity for e in _promoted(store, commit_id)})
+        conflicts = disk.drift(root, current, mine) if mine else []
+        if conflicts and not force:
+            names = ", ".join(c["path"] for c in conflicts[:3])
+            raise StoreError(
+                f"refusing to undo: {len(conflicts)} file(s) changed since this commit "
+                f"({names}). Restoring them would overwrite work done after the commit, "
+                f"and nothing in this log holds a copy of it. Look at the files first; "
+                f"`workbench undo --force` if you are sure."
+            )
+
         out = _engine(store).undo(store, commit_id, at_ts=at_ts)
+        out["overwrote"] = [c["path"] for c in conflicts]
         tree = Tree.fold(store.read(TRUNK))
         # The undone commit's own paths have to be named explicitly. Once the
         # projection stops applying them, a file the commit *created* is in

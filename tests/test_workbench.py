@@ -212,6 +212,50 @@ class TestWhenItGoesWrong(WorkbenchCase):
         self.assertIn("missing from disk", found["README.md"])
         self.assertNotIn("lib/util.py", found)
 
+    def test_undo_refuses_to_overwrite_work_done_after_the_commit(self):
+        """Undo is the more dangerous half, and for a while it was the unguarded one.
+
+        Commit has always refused when a file changed underneath it. Undo did
+        not: it wrote the log's version over whatever was there. So an agent's
+        edit, committed, then improved by a person, then undone, silently
+        destroyed the person's work — and no event anywhere recorded that it had
+        existed.
+        """
+        plan = self.rehearse([Edit("app.py", "print('agent')\n")])
+        branch = next(p["branch"] for p in plan["plans"] if p["id"] == "apply")
+        receipt = commits.commit(self.store, branch, self.root)
+
+        write(self.root, "app.py", "print('a human improved this')\n")
+
+        with self.assertRaises(StoreError) as caught:
+            commits.undo(self.store, receipt["commit_id"], self.root)
+        self.assertIn("changed since this commit", str(caught.exception))
+        self.assertIn("app.py", str(caught.exception))
+        self.assertEqual(read(self.root, "app.py"), "print('a human improved this')\n")
+
+        # And the commit is still standing, so a second attempt is possible.
+        self.assertEqual(
+            self.tree().commits[receipt["commit_id"]]["state"], "sealed")
+
+    def test_a_person_who_means_it_can_still_force_the_undo(self):
+        plan = self.rehearse([Edit("app.py", "print('agent')\n")])
+        branch = next(p["branch"] for p in plan["plans"] if p["id"] == "apply")
+        receipt = commits.commit(self.store, branch, self.root)
+        write(self.root, "app.py", "print('a human improved this')\n")
+
+        out = commits.undo(self.store, receipt["commit_id"], self.root, force=True)
+        self.assertEqual(out["overwrote"], ["app.py"])
+        self.assertEqual(read(self.root, "app.py"), "print('one')\n")
+
+    def test_an_untouched_undo_needs_no_permission(self):
+        plan = self.rehearse([Edit("app.py", "print('agent')\n")])
+        branch = next(p["branch"] for p in plan["plans"] if p["id"] == "apply")
+        receipt = commits.commit(self.store, branch, self.root)
+
+        out = commits.undo(self.store, receipt["commit_id"], self.root)
+        self.assertEqual(out["overwrote"], [])
+        self.assertTrue(out["restored"])
+
     def test_undo_does_not_tidy_files_it_never_managed(self):
         plan = self.rehearse([Edit("app.py", "print('two')\n")])
         branch = next(p["branch"] for p in plan["plans"] if p["id"] == "apply")
